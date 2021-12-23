@@ -660,6 +660,10 @@ struct frame
   /* NSAppearance theme used on this frame.  */
   enum ns_appearance_type ns_appearance;
   bool_bf ns_transparent_titlebar;
+  /* True if the frame has title hidden.  */
+  bool_bf ns_title_hidden;
+  /* True if the content fill the whole frame.  */
+  bool_bf ns_fullsize_content;
 #endif
 } GCALIGNED_STRUCT;
 
@@ -1101,6 +1105,8 @@ default_pixels_per_inch_y (void)
 #ifdef NS_IMPL_COCOA
 #define FRAME_NS_APPEARANCE(f) ((f)->ns_appearance)
 #define FRAME_NS_TRANSPARENT_TITLEBAR(f) ((f)->ns_transparent_titlebar)
+#define FRAME_NS_FULLSIZE_CONTENT(f) ((f)->ns_fullsize_content)
+#define FRAME_NS_TITLE_HIDDEN(f) ((f)->ns_title_hidden)
 #endif
 #else /* not HAVE_WINDOW_SYSTEM */
 #define FRAME_UNDECORATED(f) ((void) (f), 0)

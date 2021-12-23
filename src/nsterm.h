@@ -1204,6 +1204,12 @@ extern void ns_set_appearance (struct frame *f, Lisp_Object new_value,
 extern void ns_set_transparent_titlebar (struct frame *f,
                                          Lisp_Object new_value,
                                          Lisp_Object old_value);
+extern void ns_set_fullsize_content (struct frame *f,
+                                     Lisp_Object new_value,
+                                     Lisp_Object old_value);
+extern void ns_set_title_hidden (struct frame *f,
+                                 Lisp_Object new_value,
+                                 Lisp_Object old_value);
 #endif
 extern int ns_select (int nfds, fd_set *readfds, fd_set *writefds,
 		      fd_set *exceptfds, struct timespec *timeout,

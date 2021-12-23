@@ -1034,6 +1034,8 @@ frame_parm_handler ns_frame_parm_handlers[] =
 #ifdef NS_IMPL_COCOA
   ns_set_appearance,
   ns_set_transparent_titlebar,
+  ns_set_fullsize_content,
+  ns_set_title_hidden,
 #endif
 };
 
@@ -1366,6 +1368,18 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
   FRAME_NS_TRANSPARENT_TITLEBAR (f) = !NILP (tem) && !EQ (tem, Qunbound);
   store_frame_param (f, Qns_transparent_titlebar,
                      FRAME_NS_TRANSPARENT_TITLEBAR (f) ? Qt : Qnil);
+
+  tem = gui_display_get_arg (dpyinfo, parms, Qns_fullsize_content,
+                             NULL, NULL, RES_TYPE_BOOLEAN);
+  FRAME_NS_FULLSIZE_CONTENT (f) = !NILP (tem) && !EQ (tem, Qunbound);
+  store_frame_param (f, Qns_fullsize_content,
+                     FRAME_NS_FULLSIZE_CONTENT (f) ? Qt : Qnil);
+
+  tem = gui_display_get_arg (dpyinfo, parms, Qns_title_hidden,
+                             NULL, NULL, RES_TYPE_BOOLEAN);
+  FRAME_NS_TITLE_HIDDEN (f) = !NILP (tem) && !EQ (tem, Qunbound);
+  store_frame_param (f, Qns_title_hidden,
+                     FRAME_NS_TITLE_HIDDEN (f) ? Qt : Qnil);
 #endif
 
   parent_frame = gui_display_get_arg (dpyinfo, parms, Qparent_frame, NULL, NULL,

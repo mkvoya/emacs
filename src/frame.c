@@ -988,6 +988,8 @@ make_frame (bool mini_p)
 #ifdef NS_IMPL_COCOA
   f->ns_appearance = ns_appearance_system_default;
   f->ns_transparent_titlebar = false;
+  f->ns_fullsize_content = false;
+  f->ns_title_hidden = false;
 #endif
 #endif
   f->select_mini_window_flag = false;
@@ -3941,6 +3943,8 @@ static const struct frame_parm_table frame_parms[] =
 #ifdef NS_IMPL_COCOA
   {"ns-appearance",		SYMBOL_INDEX (Qns_appearance)},
   {"ns-transparent-titlebar",	SYMBOL_INDEX (Qns_transparent_titlebar)},
+  {"ns-fullsize-content",	SYMBOL_INDEX (Qns_fullsize_content)},
+  {"ns-title-hidden",		SYMBOL_INDEX (Qns_title_hidden)},
 #endif
 };
 
@@ -6157,6 +6161,8 @@ syms_of_frame (void)
 #ifdef NS_IMPL_COCOA
   DEFSYM (Qns_appearance, "ns-appearance");
   DEFSYM (Qns_transparent_titlebar, "ns-transparent-titlebar");
+  DEFSYM (Qns_fullsize_content, "ns-fullsize-content");
+  DEFSYM (Qns_title_hidden, "ns-title-hidden");
 #endif
 
   DEFSYM (Qalpha, "alpha");
