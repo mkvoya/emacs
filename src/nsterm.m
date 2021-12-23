@@ -1960,6 +1960,38 @@ ns_set_transparent_titlebar (struct frame *f, Lisp_Object new_value,
     }
 #endif /* MAC_OS_X_VERSION_MAX_ALLOWED >= 101000 */
 }
+
+void
+ns_set_fullsize_content (struct frame *f, Lisp_Object new_value,
+                         Lisp_Object old_value)
+{
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
+  NSTRACE ("ns_set_fullsize_content");
+
+  if (!EQ (new_value, old_value))
+    {
+      FRAME_NS_FULLSIZE_CONTENT (f) = !NILP (new_value);
+    }
+#endif /* MAC_OS_X_VERSION_MAX_ALLOWED >= 101000 */
+}
+
+void
+ns_set_title_hidden (struct frame *f, Lisp_Object new_value,
+                     Lisp_Object old_value)
+{
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
+  EmacsView *view = (EmacsView *)FRAME_NS_VIEW (f);
+  NSWindow *window = [view window];
+
+  NSTRACE ("ns_set_title_hidden");
+
+  if ([window respondsToSelector: @selector(titleVisibility)]
+      && !EQ (new_value, old_value))
+    {
+      FRAME_NS_TITLE_HIDDEN (f) = !NILP (new_value);
+    }
+#endif /* MAC_OS_X_VERSION_MAX_ALLOWED >= 101000 */
+}
 #endif /* NS_IMPL_COCOA */
 
 static void
@@ -9077,6 +9109,11 @@ ns_in_echo_area (void)
 		 | NSWindowStyleMaskMiniaturizable
 		 | NSWindowStyleMaskClosable);
 
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
+  if (FRAME_NS_FULLSIZE_CONTENT (f))
+    styleMask |= NSWindowStyleMaskFullSizeContentView;
+#endif
+
   last_drag_event = nil;
 
   width = FRAME_TEXT_COLS_TO_PIXEL_WIDTH (f, f->text_cols);
@@ -9119,6 +9156,8 @@ ns_in_echo_area (void)
 #if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
       if ([self respondsToSelector:@selector(titlebarAppearsTransparent)])
         [self setTitlebarAppearsTransparent:FRAME_NS_TRANSPARENT_TITLEBAR (f)];
+      if ([self respondsToSelector:@selector(titleVisibility)])
+        self.titleVisibility = FRAME_NS_TITLE_HIDDEN (f) ? NSWindowTitleHidden : NSWindowTitleVisible;
 #endif
 
       [self setParentChildRelationships];
