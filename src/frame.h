@@ -223,8 +223,8 @@ struct frame
   /* Desired and current tab-bar items.  */
   Lisp_Object tab_bar_items;
 
-  /* Desired and current top-bar items.  */
-  Lisp_Object top_bar_items;
+  /* Desired top-bar format.  */
+  Lisp_Object top_bar_format;
 
   /* Desired and current tool-bar items.  */
   Lisp_Object tool_bar_items;
@@ -235,9 +235,6 @@ struct frame
 
   /* Tab-bar item index of the item on which a mouse button was pressed.  */
   int last_tab_bar_item;
-
-  /* Top-bar item index of the item on which a mouse button was pressed.  */
-  int last_top_bar_item;
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
   /* Tool-bar item index of the item on which a mouse button was pressed.  */
@@ -291,8 +288,6 @@ struct frame
   /* Set to true to minimize tab-bar height even when
      auto-resize-tab-bar is set to grow-only.  */
   bool_bf minimize_tab_bar_window_p : 1;
-
-  bool_bf minimize_top_bar_window_p : 1;
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -515,7 +510,6 @@ struct frame
   int top_bar_lines;
   int top_bar_height;
   int n_top_bar_rows;
-  int n_top_bar_items;
 
   /* Number of frame lines (rounded up) of tool bar.  */
   int tool_bar_lines;
@@ -785,9 +779,9 @@ fset_tab_bar_items (struct frame *f, Lisp_Object val)
   f->tab_bar_items = val;
 }
 INLINE void
-fset_top_bar_items (struct frame *f, Lisp_Object val)
+fset_top_bar_format (struct frame *f, Lisp_Object val)
 {
-  f->top_bar_items = val;
+  f->top_bar_format = val;
 }
 #if defined (HAVE_WINDOW_SYSTEM)
 INLINE void

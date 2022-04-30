@@ -800,6 +800,9 @@ clear_current_matrices (register struct frame *f)
   /* Clear the matrix of the tab-bar window, if any.  */
   if (WINDOWP (f->tab_bar_window))
     clear_glyph_matrix (XWINDOW (f->tab_bar_window)->current_matrix);
+  /* Clear the matrix of the top-bar window, if any.  */
+  if (WINDOWP (f->top_bar_window))
+    clear_glyph_matrix (XWINDOW (f->top_bar_window)->current_matrix);
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -830,6 +833,8 @@ clear_desired_matrices (register struct frame *f)
 #if defined (HAVE_WINDOW_SYSTEM)
   if (WINDOWP (f->tab_bar_window))
     clear_glyph_matrix (XWINDOW (f->tab_bar_window)->desired_matrix);
+  if (WINDOWP (f->top_bar_window))
+    clear_glyph_matrix (XWINDOW (f->top_bar_window)->desired_matrix);
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -2196,6 +2201,35 @@ adjust_frame_glyphs_for_window_redisplay (struct frame *f)
     w->pixel_height = FRAME_TAB_BAR_HEIGHT (f);
     allocate_matrices_for_window_redisplay (w);
   }
+  {
+    /* Allocate/ reallocate matrices of the top bar window.  If we
+       don't have a top bar window yet, make one.  */
+    struct window *w;
+    if (NILP (f->top_bar_window))
+      {
+	Lisp_Object frame;
+	fset_top_bar_window (f, make_window ());
+	w = XWINDOW (f->top_bar_window);
+	XSETFRAME (frame, f);
+	wset_frame (w, frame);
+	w->pseudo_window_p = 1;
+      }
+    else
+      w = XWINDOW (f->top_bar_window);
+
+    w->pixel_left = 0;
+    w->left_col = 0;
+    w->pixel_top = FRAME_MENU_BAR_HEIGHT (f)
+      + FRAME_TOOL_BAR_HEIGHT (f) + FRAME_TAB_BAR_HEIGHT (f);
+    w->top_line = FRAME_MENU_BAR_LINES (f)
+      + FRAME_TOOL_BAR_LINES (f) + FRAME_TAB_BAR_LINES (f);
+    w->total_cols = FRAME_TOTAL_COLS (f);
+    w->pixel_width = (FRAME_PIXEL_WIDTH (f)
+		       - 2 * FRAME_INTERNAL_BORDER_WIDTH (f));
+    w->total_lines = FRAME_TOP_BAR_LINES (f);
+    w->pixel_height = FRAME_TOP_BAR_HEIGHT (f);
+    allocate_matrices_for_window_redisplay (w);
+  }
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -2291,6 +2325,15 @@ free_glyphs (struct frame *f)
 	  free_glyph_matrix (w->current_matrix);
 	  w->desired_matrix = w->current_matrix = NULL;
 	  fset_tab_bar_window (f, Qnil);
+	}
+      /* Free the top bar window and its glyph matrices.  */
+      if (!NILP (f->top_bar_window))
+	{
+	  struct window *w = XWINDOW (f->top_bar_window);
+	  free_glyph_matrix (w->desired_matrix);
+	  free_glyph_matrix (w->current_matrix);
+	  w->desired_matrix = w->current_matrix = NULL;
+	  fset_top_bar_window (f, Qnil);
 	}
 #endif
 
@@ -3211,6 +3254,30 @@ update_frame (struct frame *f, bool force_p, bool inhibit_hairy_id_p)
 	      tem = f->current_tab_bar_string;
 	      fset_current_tab_bar_string (f, f->desired_tab_bar_string);
 	      fset_desired_tab_bar_string (f, tem);
+	    }
+	}
+      /* Update the top-bar window, if present.  */
+      if (WINDOWP (f->top_bar_window))
+	{
+	  struct window *w = XWINDOW (f->top_bar_window);
+
+	  /* Update top-bar window.  */
+	  if (w->must_be_updated_p)
+	    {
+	      Lisp_Object tem;
+
+	      update_window (w, true);
+	      w->must_be_updated_p = false;
+
+	      /* Swap tab-bar strings.  We swap because we want to
+		 reuse strings.  */
+	      tem = f->current_top_bar_string;
+	      printf("update: %s => %s\n",
+		     NILP(tem) ? "NIL" : SSDATA(tem),
+		     NILP(f->desired_top_bar_string) ? "NIL" :
+		     SSDATA(f->desired_top_bar_string));
+	      fset_current_top_bar_string (f, f->desired_top_bar_string);
+	      fset_desired_top_bar_string (f, tem);
 	    }
 	}
 #endif

@@ -1015,7 +1015,6 @@ make_frame (bool mini_p)
   f->was_invisible = false;
   f->child_frame_border_width = -1;
   f->last_tab_bar_item = -1;
-  f->last_top_bar_item = -1;
 #ifndef HAVE_EXT_TOOL_BAR
   f->last_tool_bar_item = -1;
 #endif
@@ -3958,6 +3957,7 @@ static const struct frame_parm_table frame_parms[] =
   {"visibility",		SYMBOL_INDEX (Qvisibility)},
   {"tab-bar-lines",		SYMBOL_INDEX (Qtab_bar_lines)},
   {"top-bar-lines",		SYMBOL_INDEX (Qtop_bar_lines)},
+  {"top-bar-format",		SYMBOL_INDEX (Qtop_bar_format)},
   {"tool-bar-lines",		SYMBOL_INDEX (Qtool_bar_lines)},
   {"scroll-bar-foreground",	SYMBOL_INDEX (Qscroll_bar_foreground)},
   {"scroll-bar-background",	SYMBOL_INDEX (Qscroll_bar_background)},
@@ -4734,6 +4734,7 @@ gui_set_font (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
   /* Recalculate tabbar height.  */
   f->n_tab_bar_rows = 0;
   /* Recalculate topbar height.  */
+  /* NOTE(mkvoya): 0 means unknown and thus will trigger recalculation.  */
   f->n_top_bar_rows = 0;
   /* Recalculate toolbar height.  */
   f->n_tool_bar_rows = 0;
@@ -6202,7 +6203,6 @@ syms_of_frame (void)
   DEFSYM (Qmenu_bar_external, "menu-bar-external");
   DEFSYM (Qmenu_bar_size, "menu-bar-size");
   DEFSYM (Qtab_bar_size, "tab-bar-size");
-  DEFSYM (Qtop_bar_size, "top-bar-size");
   DEFSYM (Qtool_bar_external, "tool-bar-external");
   DEFSYM (Qtool_bar_size, "tool-bar-size");
   /* The following are passed to adjust_frame_size.  */
@@ -6249,6 +6249,7 @@ syms_of_frame (void)
   DEFSYM (Qmenu_bar_lines, "menu-bar-lines");
   DEFSYM (Qtab_bar_lines, "tab-bar-lines");
   DEFSYM (Qtop_bar_lines, "top-bar-lines");
+  DEFSYM (Qtop_bar_format, "top-bar-format");
   DEFSYM (Qmouse_color, "mouse-color");
   DEFSYM (Qname, "name");
   DEFSYM (Qright_divider_width, "right-divider-width");

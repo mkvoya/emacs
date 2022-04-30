@@ -756,6 +756,20 @@ ns_set_top_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
     ns_change_top_bar_height (f, nlines * FRAME_LINE_HEIGHT (f));
 }
 
+static void
+ns_set_top_bar_format (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int olines = FRAME_TOP_BAR_LINES (f);
+
+  /* Treat top bars like menu bars.  */
+  if (FRAME_MINIBUF_ONLY_P (f))
+    return;
+
+  f->top_bar_format = value;
+  /* FIXME(mkvoya): do anything else here? */
+  ns_change_top_bar_height (f, olines * FRAME_LINE_HEIGHT (f));
+}
+
 
 /* toolbar support */
 static void
@@ -1078,6 +1092,7 @@ frame_parm_handler ns_frame_parm_handlers[] =
   gui_set_visibility, /* generic OK */
   ns_set_tab_bar_lines,
   ns_set_top_bar_lines,
+  ns_set_top_bar_format,
   ns_set_tool_bar_lines,
   0, /* x_set_scroll_bar_foreground, will ignore (not possible on NS) */
   0, /* x_set_scroll_bar_background,  will ignore (not possible on NS) */
