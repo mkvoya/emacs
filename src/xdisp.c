@@ -1128,6 +1128,7 @@ static int store_mode_line_string (const char *, Lisp_Object, bool, int, int,
 static const char *decode_mode_spec (struct window *, int, int, Lisp_Object *);
 static void display_menu_bar (struct window *);
 static void display_tab_bar (struct window *);
+static void display_top_bar (struct window *);
 static void update_tab_bar (struct frame *, bool);
 static ptrdiff_t display_count_lines (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 				      ptrdiff_t *);
@@ -2739,7 +2740,7 @@ remember_mouse_glyph (struct frame *f, int gx, int gy, NativeRectangle *rect)
       goto virtual_glyph;
     }
   else if (!f->glyphs_initialized_p
-	   || (window = window_from_coordinates (f, gx, gy, &part, false, false),
+	   || (window = window_from_coordinates (f, gx, gy, &part, false, false, false),
 	       NILP (window)))
     {
       width = FRAME_SMALLEST_CHAR_WIDTH (f);
@@ -13880,6 +13881,7 @@ update_tab_bar (struct frame *f, bool save_match_data)
     }
 }
 
+
 /* Redisplay the tab bar in the frame for window W.
 
    The tab bar of X frames that don't have X toolkit support is
@@ -13983,6 +13985,99 @@ display_tab_bar (struct window *w)
   compute_line_metrics (&it);
 }
 
+/* Redisplay the top bar in the frame for window W.
+
+   The top bar of X frames that don't have X toolkit support is
+   displayed in a special window W->frame->top_bar_window.
+
+   The top bar of terminal frames is treated specially as far as
+   glyph matrices are concerned.  Top bar lines are not part of
+   windows, so the update is done directly on the frame matrix rows
+   for the top bar.  */
+
+static void
+display_top_bar (struct window *w)
+{
+  struct frame *f = XFRAME (WINDOW_FRAME (w));
+  struct it it;
+  Lisp_Object format = f->top_bar_format;
+  Lisp_Object top_bar_string;
+  int i;
+
+  /* Don't do all this for graphical frames.  */
+#ifdef HAVE_NTGUI
+  if (FRAME_W32_P (f))
+    return;
+#endif
+#if defined (USE_X_TOOLKIT) || defined (USE_GTK)
+  if (FRAME_X_P (f))
+    return;
+#endif
+
+#ifdef HAVE_NS
+  if (FRAME_NS_P (f))
+    return;
+#endif /* HAVE_NS */
+
+#if defined (USE_X_TOOLKIT) || defined (USE_GTK)
+  eassert (!FRAME_WINDOW_P (f));
+  init_iterator (&it, w, -1, -1, f->desired_matrix->rows
+                 + (FRAME_MENU_BAR_LINES (f) > 0 ? 1 : 0),
+                 TOP_BAR_FACE_ID);
+  it.first_visible_x = 0;
+  it.last_visible_x = FRAME_PIXEL_WIDTH (f);
+#elif defined (HAVE_X_WINDOWS) /* X without toolkit.  */
+  if (FRAME_WINDOW_P (f))
+    {
+      /* Top bar lines are displayed in the desired matrix of the
+	 dummy window top_bar_window.  */
+      struct window *top_w;
+      top_w = XWINDOW (f->top_bar_window);
+      init_iterator (&it, top_w, -1, -1, top_w->desired_matrix->rows,
+		     TOP_BAR_FACE_ID);
+      it.first_visible_x = 0;
+      it.last_visible_x = FRAME_PIXEL_WIDTH (f);
+    }
+  else
+#endif /* not USE_X_TOOLKIT and not USE_GTK */
+    {
+      /* This is a TTY frame, i.e. character hpos/vpos are used as
+	 pixel x/y.  */
+      init_iterator (&it, w, -1, -1, f->desired_matrix->rows
+                     + (FRAME_MENU_BAR_LINES (f) > 0 ? 1 : 0),
+		     TOP_BAR_FACE_ID);
+      it.first_visible_x = 0;
+      it.last_visible_x = FRAME_COLS (f);
+    }
+
+  /* FIXME: This should be controlled by a user option.  See the
+     comments in redisplay_tool_bar and display_mode_line about
+     this.  */
+  it.paragraph_embedding = L2R;
+
+  /* Clear all rows of the top bar.  */
+  for (i = 0; i < FRAME_TOP_BAR_LINES (f); ++i)
+    {
+      struct glyph_row *row = it.glyph_row + i;
+      clear_glyph_row (row);
+      row->enabled_p = true;
+      row->full_width_p = true;
+      row->reversed_p = false;
+    }
+
+  /* Display all items of the top bar.  */
+  top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
+  display_string (NULL, top_bar_string, Qnil, 0, 0, &it,
+		  SCHARS (top_bar_string), 0, 0, STRING_MULTIBYTE (top_bar_string));
+  /* Fill out the line with spaces.  */
+  if (it.current_x < it.last_visible_x)
+    display_string ("", Qnil, Qnil, 0, 0, &it, -1, 0, 0, -1);
+
+  /* Compute the total height of the lines.  */
+  compute_line_metrics (&it);
+  return;
+}
+
 #ifdef HAVE_WINDOW_SYSTEM
 
 /* Set F->desired_tab_bar_string to a Lisp string representing frame
@@ -14024,6 +14119,33 @@ build_desired_tab_bar_string (struct frame *f)
 
 #undef PROP
     }
+}
+
+
+/* Set F->desired_top_bar_string to a Lisp string representing frame
+   F's desired top-bar contents.  The frame parameter top_bar_format
+   is used. */
+
+static void
+build_desired_top_bar_string (struct frame *f)
+{
+  Lisp_Object format = f->top_bar_format;
+  Lisp_Object top_bar_string;
+  Lisp_Object frame;
+  XSETFRAME (frame, f);
+  Vtop_bar_current_frame = frame;
+  top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
+  Vtop_bar_current_frame = Qnil;
+
+  /* NOTE(mkvoya):
+  printf("[%s] format: ", __func__); debug_print(format);
+  printf("\n");
+  printf("[%s] top bar string: %s\n",
+	 __func__,
+	 SSDATA(top_bar_string));
+  */
+  /* Prepare F->desired_top_bar_string.  Make a new string.  */
+  fset_desired_top_bar_string (f, top_bar_string);
 }
 
 
@@ -14229,6 +14351,68 @@ PIXELWISE non-nil means return the height of the tab bar in pixels.  */)
 }
 
 
+/* Value is the number of pixels needed to make all top-bar items of
+   frame F visible.  The actual number of glyph rows needed is
+   returned in *N_ROWS if non-NULL.  */
+static int
+top_bar_height (struct frame *f, int *n_rows, bool pixelwise)
+{
+  struct window *w = XWINDOW (f->top_bar_window);
+  struct it it;
+  /* top_bar_height is called from redisplay_top_bar after building
+     the desired matrix, so use (unused) mode-line row as temporary row to
+     avoid destroying the first top-bar row.  */
+  struct glyph_row *temp_row = MATRIX_MODE_LINE_ROW (w->desired_matrix);
+
+  /* Initialize an iterator for iteration over
+     F->desired_top_bar_string in the top-bar window of frame F.  */
+  init_iterator (&it, w, -1, -1, temp_row, TOP_BAR_FACE_ID);
+  temp_row->reversed_p = false;
+  it.first_visible_x = 0;
+  it.last_visible_x = WINDOW_PIXEL_WIDTH (w);
+  reseat_to_string (&it, NULL, f->desired_top_bar_string,
+                    0, 0, 0, STRING_MULTIBYTE (f->desired_top_bar_string));
+  it.paragraph_embedding = L2R;
+
+  clear_glyph_row (temp_row);
+  while (!ITERATOR_AT_END_P (&it))
+    {
+      it.glyph_row = temp_row;
+      display_tab_bar_line (&it, -1);
+    }
+  clear_glyph_row (temp_row);
+
+  /* f->n_top_bar_rows == 0 means "unknown"; -1 means no top-bar.  */
+  if (n_rows)
+    *n_rows = it.vpos > 0 ? it.vpos : -1;
+
+  if (pixelwise)
+    return it.current_y;
+  else
+    return (it.current_y + FRAME_LINE_HEIGHT (f) - 1) / FRAME_LINE_HEIGHT (f);
+}
+
+DEFUN ("top-bar-height", Ftop_bar_height, Stop_bar_height,
+       0, 2, 0,
+       doc: /* Return the number of lines occupied by the top bar of FRAME.
+If FRAME is nil or omitted, use the selected frame.  Optional argument
+PIXELWISE non-nil means return the height of the top bar in pixels.  */)
+  (Lisp_Object frame, Lisp_Object pixelwise)
+{
+  int height = 0;
+
+  struct frame *f = decode_any_frame (frame);
+
+  if (WINDOWP (f->top_bar_window)
+      && WINDOW_PIXEL_HEIGHT (XWINDOW (f->top_bar_window)) > 0)
+    {
+      build_desired_top_bar_string (f);
+      height = top_bar_height (f, NULL, !NILP (pixelwise));
+    }
+
+  return make_fixnum (height);
+}
+
 /* Display the tab-bar of frame F.  Value is true if tab-bar's
    height should be changed.  */
 static bool
@@ -14405,6 +14589,124 @@ redisplay_tab_bar (struct frame *f)
     }
 
   f->minimize_tab_bar_window_p = false;
+  return false;
+}
+
+
+/* Display the top-bar of frame F.  Value is true if top-bar's
+   height should be changed.  */
+static bool
+redisplay_top_bar (struct frame *f)
+{
+  struct window *w;
+  struct it it;
+  struct glyph_row *row;
+
+  /* NOTE(mkvoya):
+     printf("[%s]\n", __func__);
+  */
+  f->top_bar_redisplayed = true;
+
+  /* If frame hasn't a top-bar window or if it is zero-height, don't
+     do anything.  This means you must start with top-bar-lines
+     non-zero to get the auto-sizing effect.  Or in other words, you
+     can turn off top-bars by specifying top-bar-lines zero.  */
+  if (!WINDOWP (f->top_bar_window)
+      || (w = XWINDOW (f->top_bar_window),
+          WINDOW_TOTAL_LINES (w) == 0))
+    {
+      /* Even if we do not display a top bar initially, still pretend
+	 that we have resized it.  This avoids that a later activation
+	 of the top bar resizes the frame, despite of the fact that the
+	 setting of 'frame-inhibit-implied-resize' should inhibit it
+	 (Bug#52986).  */
+      f->top_bar_resized = true;
+
+      return false;
+    }
+
+  /* Set up an iterator for the top-bar window.  */
+
+  init_iterator (&it, w, -1, -1, w->desired_matrix->rows, TOP_BAR_FACE_ID);
+  it.first_visible_x = 0;
+  it.last_visible_x = WINDOW_PIXEL_WIDTH (w);
+  row = it.glyph_row;
+  /* NOTE(mkvoya): The following line forces the update of top-bar.  */
+  clear_glyph_matrix (w->current_matrix);
+  row->reversed_p = false;
+
+  /* Build a string that represents the contents of the top-bar.  */
+  build_desired_top_bar_string (f);
+  reseat_to_string (&it, NULL, f->desired_top_bar_string, 0, 0, 0,
+                    STRING_MULTIBYTE (f->desired_top_bar_string));
+  /* FIXME: This should be controlled by a user option.  But it
+     doesn't make sense to have an R2L top bar if the menu bar cannot
+     be drawn also R2L, and making the menu bar R2L is tricky due
+     tabkit-specific code that implements it.  If an R2L top bar is
+     ever supported, display_top_bar_line should also be augmented to
+     call unproduce_glyphs like display_line and display_string
+     do.  */
+  it.paragraph_embedding = L2R;
+
+  if (f->n_top_bar_rows == 0)
+    {
+      int new_height = top_bar_height (f, &f->n_top_bar_rows, true);
+
+      if (new_height != WINDOW_PIXEL_HEIGHT (w))
+	{
+          if (FRAME_TERMINAL (f)->change_top_bar_height_hook)
+            FRAME_TERMINAL (f)->change_top_bar_height_hook (f, new_height);
+	  frame_default_top_bar_height = new_height;
+	  /* Always do that now.  */
+	  clear_glyph_matrix (w->desired_matrix);
+	  f->fonts_changed = true;
+	  return true;
+	}
+    }
+
+  /* Display as many lines as needed to display all top-bar items.  */
+
+  if (f->n_top_bar_rows > 0)
+    {
+      int border, rows, height, extra;
+
+      if (TYPE_RANGED_FIXNUMP (int, Vtop_bar_border))
+	border = XFIXNUM (Vtop_bar_border);
+      else if (EQ (Vtop_bar_border, Qinternal_border_width))
+	border = FRAME_INTERNAL_BORDER_WIDTH (f);
+      else if (EQ (Vtop_bar_border, Qborder_width))
+	border = f->border_width;
+      else
+	border = 0;
+      if (border < 0)
+	border = 0;
+
+      rows = f->n_top_bar_rows;
+      height = max (1, (it.last_visible_y - border) / rows);
+      extra = it.last_visible_y - border - height * rows;
+
+      while (it.current_y < it.last_visible_y)
+	{
+	  int h = 0;
+	  if (extra > 0 && rows-- > 0)
+	    {
+	      h = (extra + rows - 1) / rows;
+	      extra -= h;
+	    }
+	  display_tab_bar_line (&it, height + h);
+	}
+    }
+  else
+    {
+      while (it.current_y < it.last_visible_y)
+	display_tab_bar_line (&it, 0);
+    }
+
+  /* It doesn't make much sense to try scrolling in the top-bar
+     window, so don't do it.  */
+  w->desired_matrix->no_scrolling_p = true;
+  w->must_be_updated_p = true;
+
   return false;
 }
 
@@ -14624,6 +14926,31 @@ note_tab_bar_highlight (struct frame *f, int x, int y)
   help_echo_string = AREF (f->tab_bar_items, prop_idx + TAB_BAR_ITEM_HELP);
   if (NILP (help_echo_string))
     help_echo_string = AREF (f->tab_bar_items, prop_idx + TAB_BAR_ITEM_CAPTION);
+}
+
+
+/* EXPORT:
+   Handle mouse button event on the top-bar of frame F, at
+   frame-relative coordinates X/Y.  DOWN_P is true for a button press,
+   false for button release.  MODIFIERS is event modifiers for button
+   release.  */
+
+Lisp_Object
+handle_top_bar_click (struct frame *f, int x, int y, bool down_p,
+		      int modifiers)
+{
+  return Fcons (Qtab_bar, Qnil);
+}
+
+
+/* Possibly highlight a top-bar item on frame F when mouse moves to
+   top-bar window-relative coordinates X/Y.  Called from
+   note_mouse_highlight.  */
+
+static void
+note_top_bar_highlight (struct frame *f, int x, int y)
+{
+  return;
 }
 
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -20438,6 +20765,11 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
 	      && redisplay_tab_bar (f))
 	    ignore_mouse_drag_p = true;
 
+	  if (WINDOWP (f->top_bar_window)
+	      && FRAME_TOP_BAR_LINES (f) > 0
+	      && redisplay_top_bar (f))
+	    ignore_mouse_drag_p = true;
+
 #ifdef HAVE_EXT_TOOL_BAR
 	  if (FRAME_EXTERNAL_TOOL_BAR (f))
 	    update_frame_tool_bar (f);
@@ -20451,12 +20783,16 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
         }
       else
         {
+          if ((FRAME_TOP_BAR_LINES (f) > 0))
+            display_top_bar (w);
           if ((FRAME_TAB_BAR_LINES (f) > 0))
             display_tab_bar (w);
         }
 
       gui_consider_frame_title (w->frame);
 #else
+      if ((FRAME_TOP_BAR_LINES (f) > 0))
+        display_top_bar (w);
       if ((FRAME_TAB_BAR_LINES (f) > 0))
         display_tab_bar (w);
 #endif
@@ -27522,6 +27858,7 @@ are the selected window and the WINDOW's buffer).  */)
     : EQ (face, Qmode_line_active) ? MODE_LINE_ACTIVE_FACE_ID
     : EQ (face, Qmode_line_inactive) ? MODE_LINE_INACTIVE_FACE_ID
     : EQ (face, Qheader_line) ? HEADER_LINE_FACE_ID
+    : EQ (face, Qtop_bar) ? TOP_BAR_FACE_ID
     : EQ (face, Qtab_line) ? TAB_LINE_FACE_ID
     : EQ (face, Qtab_bar) ? TAB_BAR_FACE_ID
     : EQ (face, Qtool_bar) ? TOOL_BAR_FACE_ID
@@ -34963,7 +35300,7 @@ note_mouse_highlight (struct frame *f, int x, int y)
     return;
 
   /* Which window is that in?  */
-  window = window_from_coordinates (f, x, y, &part, true, true);
+  window = window_from_coordinates (f, x, y, &part, true, true, true);
 
   /* If displaying active text in another window, clear that.  */
   if (! EQ (window, hlinfo->mouse_face_window)
@@ -35083,6 +35420,13 @@ note_mouse_highlight (struct frame *f, int x, int y)
 	 f->last_tab_bar_item must be reset, in order to make sure the
 	 item can be still highlighted again in the future.  */
       f->last_tab_bar_item = -1;
+    }
+  /* Handle top-bar window differently since it doesn't display a
+     buffer.  */
+  if (EQ (window, f->top_bar_window))
+    {
+      note_top_bar_highlight (f, x, y);
+      return;
     }
 #endif
 
@@ -36270,6 +36614,7 @@ be let-bound around code that needs to disable messages temporarily. */);
 #endif
 #ifdef HAVE_WINDOW_SYSTEM
   defsubr (&Stab_bar_height);
+  defsubr (&Stop_bar_height);
   defsubr (&Stool_bar_height);
   defsubr (&Slookup_image_map);
 #endif
@@ -36764,6 +37109,18 @@ If it is one of `internal-border-width' or `border-width', use the
 value of the corresponding frame parameter.
 Otherwise, no border is added below the tab-bar.  */);
   Vtab_bar_border = Qinternal_border_width;
+
+  DEFVAR_LISP ("top-bar-border", Vtop_bar_border,
+    doc: /* Border below top-bar in pixels.
+If an integer, use it as the height of the border.
+If it is one of `internal-border-width' or `border-width', use the
+value of the corresponding frame parameter.
+Otherwise, no border is added below the top-bar.  */);
+  Vtop_bar_border = Qinternal_border_width;
+
+  DEFVAR_LISP ("top-bar-current-frame", Vtop_bar_current_frame,
+    doc: /* The current frame on which top bar is being calculated. */);
+  Vtop_bar_current_frame = Qnil;
 
   DEFVAR_LISP ("tab-bar-button-margin", Vtab_bar_button_margin,
     doc: /* Margin around tab-bar buttons in pixels.

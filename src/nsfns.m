@@ -707,6 +707,93 @@ ns_set_tab_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 }
 
 
+void
+ns_change_top_bar_height (struct frame *f, int height)
+{
+  int unit = FRAME_LINE_HEIGHT (f);
+  int old_height = FRAME_TOP_BAR_HEIGHT (f);
+  int lines = (height + unit - 1) / unit;
+  Lisp_Object fullscreen = get_frame_param (f, Qfullscreen);
+
+  /* Make sure we redisplay all windows in this frame.  */
+  fset_redisplay (f);
+
+  /* Recalculate top bar and frame text sizes.  */
+  FRAME_TOP_BAR_HEIGHT (f) = height;
+  FRAME_TOP_BAR_LINES (f) = lines;
+  store_frame_param (f, Qtop_bar_lines, make_fixnum (lines));
+
+  if (FRAME_NS_WINDOW (f) && FRAME_TOP_BAR_HEIGHT (f) == 0)
+    {
+      clear_frame (f);
+      clear_current_matrices (f);
+    }
+
+  if ((height < old_height) && WINDOWP (f->top_bar_window))
+    clear_glyph_matrix (XWINDOW (f->top_bar_window)->current_matrix);
+
+  if (!f->top_bar_resized)
+    {
+      /* As long as top_bar_resized is false, effectively try to change
+	 F's native height.  */
+      if (NILP (fullscreen) || EQ (fullscreen, Qfullwidth))
+	adjust_frame_size (f, FRAME_TEXT_WIDTH (f), FRAME_TEXT_HEIGHT (f),
+			   1, false, Qtop_bar_lines);
+      else
+	adjust_frame_size (f, -1, -1, 4, false, Qtop_bar_lines);
+
+      f->top_bar_resized = f->top_bar_redisplayed;
+    }
+  else
+    /* Any other change may leave the native size of F alone.  */
+    adjust_frame_size (f, -1, -1, 3, false, Qtop_bar_lines);
+
+  /* adjust_frame_size might not have done anything, garbage frame
+     here.  */
+  adjust_frame_glyphs (f);
+  SET_FRAME_GARBAGED (f);
+}
+
+/* topbar support */
+static void
+ns_set_top_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int olines = FRAME_TOP_BAR_LINES (f);
+  int nlines;
+
+  /* Treat top bars like menu bars.  */
+  if (FRAME_MINIBUF_ONLY_P (f))
+    return;
+
+  /* Use VALUE only if an int >= 0.  */
+  if (RANGED_FIXNUMP (0, value, INT_MAX))
+    nlines = XFIXNAT (value);
+  else
+    nlines = 0;
+
+  /* printf("%s: olines=%d nlines=%d\n", __func__, olines, nlines); */
+
+  if (nlines != olines && (olines == 0 || nlines == 0))
+    ns_change_top_bar_height (f, nlines * FRAME_LINE_HEIGHT (f));
+}
+
+static void
+ns_set_top_bar_format (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int olines = FRAME_TOP_BAR_LINES (f);
+
+  /* Treat top bars like menu bars.  */
+  if (FRAME_MINIBUF_ONLY_P (f))
+    return;
+
+  /* printf("%s: olines=%d\n", __func__, olines); */
+
+  f->top_bar_format = value;
+  /* FIXME(mkvoya): do anything else here? */
+  ns_change_top_bar_height (f, olines * FRAME_LINE_HEIGHT (f));
+}
+
+
 /* toolbar support */
 static void
 ns_set_tool_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
@@ -1043,6 +1130,8 @@ frame_parm_handler ns_frame_parm_handlers[] =
   gui_set_horizontal_scroll_bars, /* generic OK */
   gui_set_visibility, /* generic OK */
   ns_set_tab_bar_lines,
+  ns_set_top_bar_lines,
+  ns_set_top_bar_format,
   ns_set_tool_bar_lines,
   0, /* x_set_scroll_bar_foreground, will ignore (not possible on NS) */
   0, /* x_set_scroll_bar_background,  will ignore (not possible on NS) */
@@ -1447,7 +1536,24 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
   gui_default_parameter (f, parms, Qtab_bar_lines,
                          NILP (Vtab_bar_mode)
                          ? make_fixnum (0) : make_fixnum (1),
-			 NULL, NULL, RES_TYPE_NUMBER);
+                         NULL, NULL, RES_TYPE_NUMBER);
+  /* The default top bar follows the frame decoration. */
+  gui_default_parameter (f, parms, Qtop_bar_lines,
+                         FRAME_UNDECORATED (f) ?
+                         make_fixnum (0) : make_fixnum (1),
+                         NULL, NULL, RES_TYPE_NUMBER);
+  if (FRAME_UNDECORATED (f)) {
+      AUTO_FRAME_ARG (arg, Qtop_bar_lines, make_fixnum (0));
+      gui_set_frame_parameters (f, arg);
+  }
+  gui_default_parameter (f, parms, Qtop_bar_format,
+                         FRAME_UNDECORATED (f) ?
+                         Qnil : build_string("     EMACS     "),
+                         NULL, NULL, RES_TYPE_STRING);
+  if (FRAME_UNDECORATED (f)) {
+      AUTO_FRAME_ARG (arg, Qtop_bar_format, Qnil);
+      gui_set_frame_parameters (f, arg);
+  }
   gui_default_parameter (f, parms, Qtool_bar_lines,
                          NILP (Vtool_bar_mode)
                          ? make_fixnum (0) : make_fixnum (1),
@@ -1459,7 +1565,7 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
                          RES_TYPE_STRING);
 
   parms = get_geometry_from_preferences (dpyinfo, parms);
-  window_prompting = gui_figure_window_size (f, parms, false, true);
+  window_prompting = gui_figure_window_size (f, parms, false, false, true);
 
   tem = gui_display_get_arg (dpyinfo, parms, Qunsplittable, 0, 0,
                              RES_TYPE_BOOLEAN);
@@ -3085,7 +3191,7 @@ ns_create_tip_frame (struct ns_display_info *dpyinfo, Lisp_Object parms)
                          "inhibitDoubleBuffering", "InhibitDoubleBuffering",
                          RES_TYPE_BOOLEAN);
 
-  gui_figure_window_size (f, parms, false, false);
+  gui_figure_window_size (f, parms, false, false, false);
 
   block_input ();
   [[EmacsView alloc] initFrameFromEmacs: f];

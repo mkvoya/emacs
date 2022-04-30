@@ -1451,6 +1451,9 @@ The normal global definition of the character ESC indirects to this keymap.")
 (defvar tab-prefix-map (make-sparse-keymap)
   "Keymap for tab-bar related commands.")
 
+(defvar top-prefix-map (make-sparse-keymap)
+  "Keymap for top-bar related commands.")
+
 (defvar ctl-x-map
   (let ((map (make-keymap)))
     (define-key map "4" 'ctl-x-4-prefix)
@@ -3068,6 +3071,10 @@ only unbound fallback disabled is downcasing of the last event."
 	       ;; This hack avoids evaluating the :filter (Bug#9922).
 	       (or (cdr (assq 'tab-bar global-map))
 		   (lookup-key global-map [tab-bar])))
+             (define-key map [top-bar]
+	       ;; This hack avoids evaluating the :filter (Bug#9922).
+	       (or (cdr (assq 'top-bar global-map))
+		   (lookup-key global-map [top-bar])))
              (define-key map [tool-bar]
 	       ;; This hack avoids evaluating the :filter (Bug#9922).
 	       (or (cdr (assq 'tool-bar global-map))

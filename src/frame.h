@@ -190,10 +190,15 @@ struct frame
 #if defined (HAVE_WINDOW_SYSTEM)
   /* A window used to display the tab-bar of a frame.  */
   Lisp_Object tab_bar_window;
+  /* A window used to display the top-bar of a frame.  */
+  Lisp_Object top_bar_window;
 
   /* Desired and current contents displayed in that window.  */
   Lisp_Object desired_tab_bar_string;
   Lisp_Object current_tab_bar_string;
+
+  Lisp_Object desired_top_bar_string;
+  Lisp_Object current_top_bar_string;
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -218,6 +223,9 @@ struct frame
 
   /* Desired and current tab-bar items.  */
   Lisp_Object tab_bar_items;
+
+  /* Desired top-bar format.  */
+  Lisp_Object top_bar_format;
 
   /* Desired and current tool-bar items.  */
   Lisp_Object tool_bar_items;
@@ -436,6 +444,8 @@ struct frame
      height.  */
   bool_bf tab_bar_redisplayed : 1;
   bool_bf tab_bar_resized : 1;
+  bool_bf top_bar_redisplayed : 1;
+  bool_bf top_bar_resized : 1;
 
   /* Two sticky flags, that are both false when a frame is created.
      'redisplay_tool_bar' sets the former to true the first time it
@@ -496,6 +506,11 @@ struct frame
 
   int n_tab_bar_rows;
   int n_tab_bar_items;
+
+  /* Top bar staffs (similar to tab bar).  */
+  int top_bar_lines;
+  int top_bar_height;
+  int n_top_bar_rows;
 
   /* Number of frame lines (rounded up) of tool bar.  */
   int tool_bar_lines;
@@ -764,6 +779,11 @@ fset_tab_bar_items (struct frame *f, Lisp_Object val)
 {
   f->tab_bar_items = val;
 }
+INLINE void
+fset_top_bar_format (struct frame *f, Lisp_Object val)
+{
+  f->top_bar_format = val;
+}
 #if defined (HAVE_WINDOW_SYSTEM)
 INLINE void
 fset_tab_bar_window (struct frame *f, Lisp_Object val)
@@ -779,6 +799,21 @@ INLINE void
 fset_desired_tab_bar_string (struct frame *f, Lisp_Object val)
 {
   f->desired_tab_bar_string = val;
+}
+INLINE void
+fset_top_bar_window (struct frame *f, Lisp_Object val)
+{
+  f->top_bar_window = val;
+}
+INLINE void
+fset_current_top_bar_string (struct frame *f, Lisp_Object val)
+{
+  f->current_top_bar_string = val;
+}
+INLINE void
+fset_desired_top_bar_string (struct frame *f, Lisp_Object val)
+{
+  f->desired_top_bar_string = val;
 }
 #endif /* HAVE_WINDOW_SYSTEM */
 INLINE void
@@ -981,6 +1016,10 @@ default_pixels_per_inch_y (void)
 #define FRAME_TAB_BAR_LINES(f) (f)->tab_bar_lines
 #define FRAME_TAB_BAR_HEIGHT(f) (f)->tab_bar_height
 
+/* Size of frame F's top bar in frame lines and pixels.  */
+#define FRAME_TOP_BAR_LINES(f) (f)->top_bar_lines
+#define FRAME_TOP_BAR_HEIGHT(f) (f)->top_bar_height
+
 /* True if this frame should display an external tool bar.  */
 #ifdef HAVE_EXT_TOOL_BAR
 #define FRAME_EXTERNAL_TOOL_BAR(f) (f)->external_tool_bar
@@ -1002,12 +1041,14 @@ default_pixels_per_inch_y (void)
 /* Height of frame F's top margin in frame lines.  */
 #define FRAME_TOP_MARGIN(F)			\
   (FRAME_MENU_BAR_LINES (F)			\
+   + FRAME_TOP_BAR_LINES (F)			\
    + FRAME_TAB_BAR_LINES (F)			\
    + FRAME_TOOL_BAR_LINES (F))
 
 /* Pixel height of frame F's top margin.  */
 #define FRAME_TOP_MARGIN_HEIGHT(F)		\
   (FRAME_MENU_BAR_HEIGHT (F)			\
+   + FRAME_TOP_BAR_HEIGHT (F)			\
    + FRAME_TAB_BAR_HEIGHT (F)			\
    + FRAME_TOOL_BAR_HEIGHT (F))
 
@@ -1340,6 +1381,7 @@ extern Lisp_Object selected_frame;
 extern Lisp_Object old_selected_frame;
 
 extern int frame_default_tab_bar_height;
+extern int frame_default_top_bar_height;
 
 #ifndef HAVE_EXT_TOOL_BAR
 extern int frame_default_tool_bar_height;
@@ -1713,7 +1755,7 @@ extern void gui_set_horizontal_scroll_bars (struct frame *, Lisp_Object, Lisp_Ob
 extern void gui_set_scroll_bar_width (struct frame *, Lisp_Object, Lisp_Object);
 extern void gui_set_scroll_bar_height (struct frame *, Lisp_Object, Lisp_Object);
 
-extern long gui_figure_window_size (struct frame *, Lisp_Object, bool, bool);
+extern long gui_figure_window_size (struct frame *, Lisp_Object, bool, bool, bool);
 
 extern void gui_set_alpha (struct frame *, Lisp_Object, Lisp_Object);
 extern void gui_set_alpha_background (struct frame *, Lisp_Object, Lisp_Object);

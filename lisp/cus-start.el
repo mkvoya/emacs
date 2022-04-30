@@ -898,6 +898,8 @@ since it could result in memory overflow and make Emacs crash."
 		       (fboundp 'x-create-frame))
 		      ((string-match "tab-bar-" (symbol-name symbol))
 		       (fboundp 'x-create-frame))
+		      ((string-match "top-bar-" (symbol-name symbol))
+		       (fboundp 'x-create-frame))
 		      ((equal "vertical-centering-font-regexp"
 			      (symbol-name symbol))
 		       ;; Any function from fontset.c will do.

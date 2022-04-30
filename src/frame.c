@@ -71,6 +71,9 @@ bool frame_garbaged;
 /* The default tab bar height for future frames.  */
 int frame_default_tab_bar_height;
 
+/* The default top bar height for future frames.  */
+int frame_default_top_bar_height;
+
 /* The default tool bar height for future frames.  */
 #ifdef HAVE_EXT_TOOL_BAR
 enum { frame_default_tool_bar_height = 0 };
@@ -211,6 +214,27 @@ set_tab_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
     {
       windows_or_buffers_changed = 14;
       FRAME_TAB_BAR_LINES (f) = FRAME_TAB_BAR_HEIGHT (f) = nlines;
+      change_frame_size (f, FRAME_PIXEL_WIDTH (f), FRAME_PIXEL_HEIGHT (f),
+			 false, true, false);
+    }
+}
+
+
+/** Set top bar lines for a TTY frame.  */
+static void
+set_top_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  int olines = FRAME_TOP_BAR_LINES (f);
+  int nlines = TYPE_RANGED_FIXNUMP (int, value) ? XFIXNUM (value) : 0;
+
+  /* Right now, top bars don't work properly in minibuf-only frames;
+     most of the commands try to apply themselves to the minibuffer
+     frame itself, and get an error because you can't switch buffers
+     in or split the minibuffer window.  */
+  if (!FRAME_MINIBUF_ONLY_P (f) && nlines != olines)
+    {
+      windows_or_buffers_changed = 14;
+      FRAME_TOP_BAR_LINES (f) = FRAME_TOP_BAR_HEIGHT (f) = nlines;
       change_frame_size (f, FRAME_PIXEL_WIDTH (f), FRAME_PIXEL_HEIGHT (f),
 			 false, true, false);
     }
@@ -373,6 +397,7 @@ frame_windows_min_size (Lisp_Object frame, Lisp_Object horizontal,
   if ((FRAME_TERMCAP_P (f) || FRAME_MSDOS_P (f)) && NILP (horizontal))
     {
       int min_height = (FRAME_MENU_BAR_LINES (f)
+			+ FRAME_TOP_BAR_LINES (f)
 			+ FRAME_TAB_BAR_LINES (f)
 			+ FRAME_WANTS_MODELINE_P (f)
 			+ 2);	/* one text line and one echo-area line */
@@ -839,6 +864,12 @@ adjust_frame_size (struct frame *f, int new_text_width, int new_text_height,
 	  XWINDOW (f->tab_bar_window)->total_cols
 	    = new_inner_width / unit_width;
 	}
+      if (WINDOWP (f->top_bar_window))
+	{
+	  XWINDOW (f->top_bar_window)->pixel_width = new_inner_width;
+	  XWINDOW (f->top_bar_window)->total_cols
+	    = new_inner_width / unit_width;
+	}
 #endif
 
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
@@ -959,6 +990,8 @@ make_frame (bool mini_p)
   f->inhibit_vertical_resize = false;
   f->tab_bar_redisplayed = false;
   f->tab_bar_resized = false;
+  f->top_bar_redisplayed = false;
+  f->top_bar_resized = false;
   f->tool_bar_redisplayed = false;
   f->tool_bar_resized = false;
   f->column_width = 1;  /* !FRAME_WINDOW_P value.  */
@@ -1216,6 +1249,9 @@ make_initial_frame (void)
   /* The default value of tab-bar-mode is nil.  */
   set_tab_bar_lines (f, make_fixnum (0), Qnil);
 
+  /* The default value of top-bar-mode is t.  */
+  set_top_bar_lines (f, make_fixnum (1), Qnil);
+
   /* Allocate glyph matrices.  */
   adjust_frame_glyphs (f);
 
@@ -1275,12 +1311,14 @@ make_terminal_frame (struct terminal *terminal)
 
   FRAME_MENU_BAR_LINES (f) = NILP (Vmenu_bar_mode) ? 0 : 1;
   FRAME_TAB_BAR_LINES (f) = NILP (Vtab_bar_mode) ? 0 : 1;
+  FRAME_TOP_BAR_LINES (f) = 1;
   FRAME_LINES (f) = FRAME_LINES (f) - FRAME_MENU_BAR_LINES (f)
-    - FRAME_TAB_BAR_LINES (f);
+    - FRAME_TOP_BAR_LINES (f) - FRAME_TAB_BAR_LINES (f);
   FRAME_MENU_BAR_HEIGHT (f) = FRAME_MENU_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
+  FRAME_TOP_BAR_HEIGHT (f) = FRAME_TOP_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
   FRAME_TAB_BAR_HEIGHT (f) = FRAME_TAB_BAR_LINES (f) * FRAME_LINE_HEIGHT (f);
   FRAME_TEXT_HEIGHT (f) = FRAME_TEXT_HEIGHT (f) - FRAME_MENU_BAR_HEIGHT (f)
-    - FRAME_TAB_BAR_HEIGHT (f);
+    - FRAME_TOP_BAR_HEIGHT (f) - FRAME_TAB_BAR_HEIGHT (f);
 
   /* Set the top frame to the newly created frame.  */
   if (FRAMEP (FRAME_TTY (f)->top_frame)
@@ -3270,6 +3308,8 @@ store_frame_param (struct frame *f, Lisp_Object prop, Lisp_Object val)
     {
       if (EQ (prop, Qmenu_bar_lines))
 	set_menu_bar_lines (f, val, make_fixnum (FRAME_MENU_BAR_LINES (f)));
+      else if (EQ (prop, Qtop_bar_lines))
+	set_top_bar_lines (f, val, make_fixnum (FRAME_TOP_BAR_LINES (f)));
       else if (EQ (prop, Qtab_bar_lines))
 	set_tab_bar_lines (f, val, make_fixnum (FRAME_TAB_BAR_LINES (f)));
       else if (EQ (prop, Qname))
@@ -3373,6 +3413,8 @@ If FRAME is omitted or nil, return information on the currently selected frame. 
 
       XSETFASTINT (lines, FRAME_MENU_BAR_LINES (f));
       store_in_alist (&alist, Qmenu_bar_lines, lines);
+      XSETFASTINT (lines, FRAME_TOP_BAR_LINES (f));
+      store_in_alist (&alist, Qtop_bar_lines, lines);
       XSETFASTINT (lines, FRAME_TAB_BAR_LINES (f));
       store_in_alist (&alist, Qtab_bar_lines, lines);
     }
@@ -3956,6 +3998,8 @@ static const struct frame_parm_table frame_parms[] =
   {"horizontal-scroll-bars",	SYMBOL_INDEX (Qhorizontal_scroll_bars)},
   {"visibility",		SYMBOL_INDEX (Qvisibility)},
   {"tab-bar-lines",		SYMBOL_INDEX (Qtab_bar_lines)},
+  {"top-bar-lines",		SYMBOL_INDEX (Qtop_bar_lines)},
+  {"top-bar-format",		SYMBOL_INDEX (Qtop_bar_format)},
   {"tool-bar-lines",		SYMBOL_INDEX (Qtool_bar_lines)},
   {"scroll-bar-foreground",	SYMBOL_INDEX (Qscroll_bar_foreground)},
   {"scroll-bar-background",	SYMBOL_INDEX (Qscroll_bar_background)},
@@ -4739,6 +4783,9 @@ gui_set_font (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 
   /* Recalculate tabbar height.  */
   f->n_tab_bar_rows = 0;
+  /* Recalculate topbar height.  */
+  /* NOTE(mkvoya): 0 means unknown and thus will trigger recalculation.  */
+  f->n_top_bar_rows = 0;
   /* Recalculate toolbar height.  */
   f->n_tool_bar_rows = 0;
 
@@ -5706,7 +5753,7 @@ On Nextstep, this just calls `ns-parse-geometry'.  */)
 
 long
 gui_figure_window_size (struct frame *f, Lisp_Object parms, bool tabbar_p,
-                        bool toolbar_p)
+                        bool topbar_p, bool toolbar_p)
 {
   Lisp_Object height, width, user_size, top, left, user_position;
   long window_prompting = 0;
@@ -5719,6 +5766,21 @@ gui_figure_window_size (struct frame *f, Lisp_Object parms, bool tabbar_p,
      positions are not (0,0), they're intentional, not defaults.  */
   f->top_pos = 0;
   f->left_pos = 0;
+
+  /* Calculate a top bar height so that the user gets a text display
+     area of the size he specified with -g or via .Xdefaults.  Later
+     changes of the top bar height don't change the frame size.  This
+     is done so that users can create tall Emacs frames without having
+     to guess how tall the top bar will get.  */
+  if (topbar_p && FRAME_TOP_BAR_LINES (f))
+    {
+      if (frame_default_top_bar_height)
+	/* A default top bar height was already set by the display code
+	   for some other frame, use that.  */
+	FRAME_TOP_BAR_HEIGHT (f) = frame_default_top_bar_height;
+      else
+	FRAME_TOP_BAR_HEIGHT (f) = 0;
+    }
 
   /* Calculate a tab bar height so that the user gets a text display
      area of the size he specified with -g or via .Xdefaults.  Later
@@ -6307,6 +6369,8 @@ syms_of_frame (void)
   DEFSYM (Qline_spacing, "line-spacing");
   DEFSYM (Qmenu_bar_lines, "menu-bar-lines");
   DEFSYM (Qtab_bar_lines, "tab-bar-lines");
+  DEFSYM (Qtop_bar_lines, "top-bar-lines");
+  DEFSYM (Qtop_bar_format, "top-bar-format");
   DEFSYM (Qmouse_color, "mouse-color");
   DEFSYM (Qname, "name");
   DEFSYM (Qright_divider_width, "right-divider-width");
