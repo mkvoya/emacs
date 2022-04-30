@@ -302,6 +302,7 @@ It is the default value of `show-paren-data-function'."
                    (header-line-format . nil)
                    (tab-line-format . nil)
                    (tab-bar-format . nil) ;; Emacs 28 tab-bar-format
+                   (top-bar-format . nil) ;; My top-bar-format
                    (frame-title-format . "")
                    (truncate-lines . t)
                    (cursor-in-non-selected-windows . nil)
@@ -337,6 +338,7 @@ It is the default value of `show-paren-data-function'."
     (menu-bar-lines . 0)
     (tool-bar-lines . 0)
     (tab-bar-lines . 0)
+    (top-bar-lines . 0)
     (no-other-frame . t)
     (no-other-window . t)
     (no-delete-other-windows . t)

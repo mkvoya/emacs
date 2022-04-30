@@ -8079,6 +8079,19 @@ x_draw_image_relief (struct glyph_string *s)
 	extra_x = extra_y = XFIXNUM (Vtab_bar_button_margin) - thick;
     }
 
+  if (s->face->id == TOP_BAR_FACE_ID)
+    {
+      if (CONSP (Vtop_bar_button_margin)
+	  && FIXNUMP (XCAR (Vtop_bar_button_margin))
+	  && FIXNUMP (XCDR (Vtop_bar_button_margin)))
+	{
+	  extra_x = XFIXNUM (XCAR (Vtop_bar_button_margin)) - thick;
+	  extra_y = XFIXNUM (XCDR (Vtop_bar_button_margin)) - thick;
+	}
+      else if (FIXNUMP (Vtop_bar_button_margin))
+	extra_x = extra_y = XFIXNUM (Vtop_bar_button_margin) - thick;
+    }
+
   if (s->face->id == TOOL_BAR_FACE_ID)
     {
       if (CONSP (Vtool_bar_button_margin)

@@ -272,6 +272,7 @@
 
 (load "menu-bar")
 (load "tab-bar")
+(load "top-bar")
 (load "emacs-lisp/lisp")
 (load "textmodes/page")
 (load "register")

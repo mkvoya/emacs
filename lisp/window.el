@@ -1446,9 +1446,12 @@ dumping to it."
        (format "frame text pixel: %s x %s   cols/lines: %s x %s\n"
 	       (frame-text-width frame) (frame-text-height frame)
 	       (frame-text-cols frame) (frame-text-lines frame))
-       (format "tab: %s  tool: %s  scroll: %s/%s  fringe: %s  border: %s  right: %s  bottom: %s\n\n"
+       (format "tab: %s  top: %s  tool: %s  scroll: %s/%s  fringe: %s  border: %s  right: %s  bottom: %s\n\n"
 	       (if (fboundp 'tab-bar-height)
 		   (tab-bar-height frame t)
+		 "0")
+	       (if (fboundp 'top-bar-height)
+		   (top-bar-height frame t)
 		 "0")
 	       (if (fboundp 'tool-bar-height)
 		   (tool-bar-height frame t)

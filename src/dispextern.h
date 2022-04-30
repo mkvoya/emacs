@@ -1856,6 +1856,7 @@ enum face_id
   CHILD_FRAME_BORDER_FACE_ID,
   TAB_BAR_FACE_ID,
   TAB_LINE_FACE_ID,
+  TOP_BAR_FACE_ID,
   BASIC_FACE_ID_SENTINEL
 };
 
@@ -3252,6 +3253,50 @@ enum tab_bar_item_idx
 /* The height in pixels of the default tab-bar images.  */
 
 #define DEFAULT_TAB_BAR_IMAGE_HEIGHT 18
+
+
+/***********************************************************************
+			       Top-bars
+ ***********************************************************************/
+
+/* Enumeration defining where to find top-bar item information in
+   top-bar items vectors stored with frames.  Each top-bar item
+   occupies TOP_BAR_ITEM_NSLOTS elements in such a vector.  */
+
+enum top_bar_item_idx
+{
+  /* The key of the top-bar item.  Used to remove items when a binding
+     for `undefined' is found.  */
+  TOP_BAR_ITEM_KEY,
+
+  /* Non-nil if item is enabled.  */
+  TOP_BAR_ITEM_ENABLED_P,
+
+  /* Non-nil if item is selected (pressed).  */
+  TOP_BAR_ITEM_SELECTED_P,
+
+  /* Caption.  */
+  TOP_BAR_ITEM_CAPTION,
+
+  /* The binding.  */
+  TOP_BAR_ITEM_BINDING,
+
+  /* Help string.  */
+  TOP_BAR_ITEM_HELP,
+
+  /* Sentinel = number of slots in top_bar_items occupied by one
+     top-bar item.  */
+  TOP_BAR_ITEM_NSLOTS
+};
+
+/* Default values of the above variables.  */
+
+#define DEFAULT_TOP_BAR_BUTTON_MARGIN 1
+#define DEFAULT_TOP_BAR_BUTTON_RELIEF 1
+
+/* The height in pixels of the default top-bar images.  */
+
+#define DEFAULT_TOP_BAR_IMAGE_HEIGHT 18
 
 
 /***********************************************************************

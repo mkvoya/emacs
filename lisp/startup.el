@@ -1433,6 +1433,7 @@ please check its value")
     (if (or noninteractive emacs-basic-display)
 	(setq menu-bar-mode nil
 	      tab-bar-mode nil
+	      top-bar-mode nil
 	      tool-bar-mode nil))
     (frame-initialize))
 

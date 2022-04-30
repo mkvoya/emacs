@@ -405,6 +405,48 @@ there (in decreasing order of priority)."
 				(eq 0 (cdr other-lines)))))
 	      (tab-bar-mode -1)))))
 
+      ;; When top-bar has been switched off, correct the frame size
+      ;; by the lines added in x-create-frame for the top-bar and
+      ;; switch `top-bar-mode' off.
+      (when (display-graphic-p)
+        (declare-function top-bar-height "xdisp.c" (&optional frame pixelwise))
+	(let* ((init-lines
+		(assq 'top-bar-lines initial-frame-alist))
+	       (other-lines
+		(or (assq 'top-bar-lines window-system-frame-alist)
+		    (assq 'top-bar-lines default-frame-alist)))
+	       (lines (or init-lines other-lines))
+	       (height (top-bar-height frame-initial-frame t)))
+	  ;; Adjust frame top if either zero (nil) top bar lines have
+	  ;; been requested in the most relevant of the frame's alists
+	  ;; or top bar mode has been explicitly turned off in the
+	  ;; user's init file.
+	  (when (and (> height 0)
+		     (or (and lines
+			      (or (null (cdr lines))
+				  (eq 0 (cdr lines))))
+			 (not top-bar-mode)))
+	    (let* ((initial-top
+		    (cdr (assq 'top frame-initial-geometry-arguments)))
+		   (top (frame-parameter frame-initial-frame 'top)))
+	      (when (and (consp initial-top) (eq '- (car initial-top)))
+		(let ((adjusted-top
+		       (cond
+			((and (consp top) (eq '+ (car top)))
+			 (list '+ (+ (cadr top) height)))
+			((and (consp top) (eq '- (car top)))
+			 (list '- (- (cadr top) height)))
+			(t (+ top height)))))
+		  (modify-frame-parameters
+		   frame-initial-frame `((top . ,adjusted-top))))))
+	    ;; Reset `top-bar-mode' when zero top bar lines have been
+	    ;; requested for the window-system or default frame alists.
+	    (when (and top-bar-mode
+		       (and other-lines
+			    (or (null (cdr other-lines))
+				(eq 0 (cdr other-lines)))))
+	      (top-bar-mode -1)))))
+
       ;; When tool-bar has been switched off, correct the frame size
       ;; by the lines added in x-create-frame for the tool-bar and
       ;; switch `tool-bar-mode' off.
@@ -1402,6 +1444,7 @@ FRAME defaults to the selected frame."
   (setq frame (window-normalize-frame frame))
   (- (frame-native-height frame)
      (if (fboundp 'tab-bar-height) (tab-bar-height frame t) 0)
+     (if (fboundp 'top-bar-height) (top-bar-height frame t) 0)
      (* 2 (frame-internal-border-width frame))))
 
 (defun frame-outer-width (&optional frame)
@@ -1714,6 +1757,7 @@ and width values are in pixels.
        '(tool-bar-position . nil)
        '(tool-bar-size 0 . 0)
        '(tab-bar-size 0 . 0)
+       '(top-bar-size 0 . 0)
        (cons 'internal-border-width
 	     (frame-parameter frame 'internal-border-width)))))))
 

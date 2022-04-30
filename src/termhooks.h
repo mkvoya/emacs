@@ -246,6 +246,11 @@ enum event_kind
      and `arg' are equal, this is a prefix event.  */
   TAB_BAR_EVENT,
 
+  /* An event from a top-bar.  Member `arg' of the input event
+     contains the top-bar item selected.  If `frame_or_window'
+     and `arg' are equal, this is a prefix event.  */
+  TOP_BAR_EVENT,
+
   /* An event from a tool-bar.  Member `arg' of the input event
      contains the tool-bar item selected.  If `frame_or_window'
      and `arg' are equal, this is a prefix event.  */
@@ -721,6 +726,9 @@ struct terminal
 
   /* This hook is called to change the frame's (internal) tab-bar.  */
   void (*change_tab_bar_height_hook) (struct frame *f, int height);
+
+  /* This hook is called to change the frame's (internal) top-bar.  */
+  void (*change_top_bar_height_hook) (struct frame *f, int height);
 
   /* This hook is called to change the frame's (internal) tool-bar.  */
   void (*change_tool_bar_height_hook) (struct frame *f, int height);

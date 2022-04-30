@@ -1037,6 +1037,7 @@ in the selected file.
 	  dframe-mouse-click-function #'speedbar-click
 	  dframe-mouse-position-function #'speedbar-position-cursor-on-line)
     (setq-local tab-bar-mode nil)
+    (setq-local top-bar-mode nil)
     (setq tab-line-exclude nil))
   speedbar-buffer)
 

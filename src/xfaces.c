@@ -4914,6 +4914,7 @@ lookup_basic_face (struct window *w, struct frame *f, int face_id)
     case HEADER_LINE_FACE_ID:		name = Qheader_line;		break;
     case TAB_LINE_FACE_ID:		name = Qtab_line;		break;
     case TAB_BAR_FACE_ID:		name = Qtab_bar;		break;
+    case TOP_BAR_FACE_ID:		name = Qtop_bar;		break;
     case TOOL_BAR_FACE_ID:		name = Qtool_bar;		break;
     case FRINGE_FACE_ID:		name = Qfringe;			break;
     case SCROLL_BAR_FACE_ID:		name = Qscroll_bar;		break;
@@ -5640,6 +5641,7 @@ realize_basic_faces (struct frame *f)
       realize_named_face (f, Qchild_frame_border, CHILD_FRAME_BORDER_FACE_ID);
       realize_named_face (f, Qtab_bar, TAB_BAR_FACE_ID);
       realize_named_face (f, Qtab_line, TAB_LINE_FACE_ID);
+      realize_named_face (f, Qtop_bar, TOP_BAR_FACE_ID);
 
       /* Reflect changes in the `menu' face in menu bars.  */
       if (FRAME_FACE_CACHE (f)->menu_face_changed_p)
@@ -5777,6 +5779,7 @@ realize_default_face (struct frame *f)
 	 acceptable as a font for the default face (perhaps because
 	 auto-scaled fonts are rejected), so we must adjust the frame
 	 font.  */
+      printf("Hello defualt face\n");
       gui_set_font (f, LFACE_FONT (lface), Qnil);
     }
 #endif
@@ -7020,6 +7023,7 @@ syms_of_xfaces (void)
   DEFSYM (Qdefault, "default");
   DEFSYM (Qtool_bar, "tool-bar");
   DEFSYM (Qtab_bar, "tab-bar");
+  DEFSYM (Qtop_bar, "top-bar");
   DEFSYM (Qfringe, "fringe");
   DEFSYM (Qtab_line, "tab-line");
   DEFSYM (Qheader_line, "header-line");

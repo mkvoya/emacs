@@ -338,6 +338,9 @@ Leaving \"Default\" unchecked is equivalent with specifying a default of
 	     (tab-bar-mode tab-bar boolean nil
                            ;; :initialize custom-initialize-default
 			   :set custom-set-minor-mode)
+	     (top-bar-mode top-bar boolean nil
+                           ;; :initialize custom-initialize-default
+			   :set custom-set-minor-mode)
 	     (tool-bar-mode (frames mouse) boolean nil
                             ;; :initialize custom-initialize-default
 			    :set custom-set-minor-mode)
@@ -890,6 +893,8 @@ since it could result in memory overflow and make Emacs crash."
 		      ((string-match "tool-bar-" (symbol-name symbol))
 		       (fboundp 'x-create-frame))
 		      ((string-match "tab-bar-" (symbol-name symbol))
+		       (fboundp 'x-create-frame))
+		      ((string-match "top-bar-" (symbol-name symbol))
 		       (fboundp 'x-create-frame))
 		      ((equal "vertical-centering-font-regexp"
 			      (symbol-name symbol))

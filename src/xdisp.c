@@ -1120,7 +1120,9 @@ static int store_mode_line_string (const char *, Lisp_Object, bool, int, int,
 static const char *decode_mode_spec (struct window *, int, int, Lisp_Object *);
 static void display_menu_bar (struct window *);
 static void display_tab_bar (struct window *);
+static void display_top_bar (struct window *);
 static void update_tab_bar (struct frame *, bool);
+static void update_top_bar (struct frame *, bool);
 static ptrdiff_t display_count_lines (ptrdiff_t, ptrdiff_t, ptrdiff_t,
 				      ptrdiff_t *);
 static void pint2str (register char *, register int, register ptrdiff_t);
@@ -13360,6 +13362,7 @@ prepare_menu_bars (void)
 	    menu_bar_hooks_run = update_menu_bar (f, false, menu_bar_hooks_run);
 
 	  update_tab_bar (f, false);
+	  update_top_bar (f, false);
 #ifdef HAVE_WINDOW_SYSTEM
 	  update_tool_bar (f, false);
 #endif
@@ -13375,6 +13378,7 @@ prepare_menu_bars (void)
 	update_menu_bar (sf, true, false);
 
       update_tab_bar (sf, true);
+      update_top_bar (sf, true);
 #ifdef HAVE_WINDOW_SYSTEM
       update_tool_bar (sf, true);
 #endif
@@ -13662,6 +13666,109 @@ update_tab_bar (struct frame *f, bool save_match_data)
     }
 }
 
+
+/* Update the top-bar item list for frame F.  This has to be done
+   before we start to fill in any display lines.  Called from
+   prepare_menu_bars.  If SAVE_MATCH_DATA, we must save
+   and restore it here.  */
+
+static void
+update_top_bar (struct frame *f, bool save_match_data)
+{
+  bool do_update = false;
+
+#ifdef HAVE_WINDOW_SYSTEM
+  if (FRAME_WINDOW_P (f) && WINDOWP (f->top_bar_window)) {
+    if (WINDOW_TOTAL_LINES (XWINDOW (f->top_bar_window)) > 0)
+      do_update = true;
+  }
+  else
+#endif
+  if (FRAME_TOP_BAR_LINES (f) > 0)
+    do_update = true;
+
+  if (do_update)
+    {
+      Lisp_Object window;
+      struct window *w;
+
+      window = FRAME_SELECTED_WINDOW (f);
+      w = XWINDOW (window);
+
+      /* If the user has switched buffers or windows, we need to
+	 recompute to reflect the new bindings.  But we'll
+	 recompute when update_mode_lines is set too; that means
+	 that people can use force-mode-line-update to request
+	 that the menu bar be recomputed.  The adverse effect on
+	 the rest of the redisplay algorithm is about the same as
+	 windows_or_buffers_changed anyway.  */
+      if (windows_or_buffers_changed
+	  || w->update_mode_line
+	  || update_mode_lines
+	  || window_buffer_changed (w))
+	{
+	  struct buffer *prev = current_buffer;
+	  specpdl_ref count = SPECPDL_INDEX ();
+	  Lisp_Object new_top_bar;
+          int new_n_top_bar;
+
+	  /* Set current_buffer to the buffer of the selected
+	     window of the frame, so that we get the right local
+	     keymaps.  */
+	  set_buffer_internal_1 (XBUFFER (w->contents));
+
+	  /* Save match data, if we must.  */
+	  if (save_match_data)
+	    record_unwind_save_match_data ();
+
+	  /* Make sure that we don't accidentally use bogus keymaps.  */
+	  if (NILP (Voverriding_local_map_menu_flag))
+	    {
+	      specbind (Qoverriding_terminal_local_map, Qnil);
+	      specbind (Qoverriding_local_map, Qnil);
+	    }
+
+	  /* We must temporarily set the selected frame to this frame
+	     before calling top_bar_items, because the calculation of
+	     the top-bar keymap uses the selected frame (see
+	     `top-bar-make-keymap' in top-bar.el).  */
+	  eassert (EQ (selected_window,
+		       /* Since we only explicitly preserve selected_frame,
+			  check that selected_window would be redundant.  */
+		       XFRAME (selected_frame)->selected_window));
+#ifdef HAVE_WINDOW_SYSTEM
+	  Lisp_Object frame;
+	  record_unwind_protect (restore_selected_window, selected_window);
+	  XSETFRAME (frame, f);
+	  selected_frame = frame;
+	  selected_window = FRAME_SELECTED_WINDOW (f);
+#endif
+
+	  /* Build desired top-bar items from keymaps.  */
+          new_top_bar
+	    = top_bar_items (Fcopy_sequence (f->top_bar_items),
+			      &new_n_top_bar);
+
+	  /* Redisplay the top-bar if we changed it.  */
+	  if (new_n_top_bar != f->n_top_bar_items
+	      || NILP (Fequal (new_top_bar, f->top_bar_items)))
+            {
+              /* Redisplay that happens asynchronously due to an expose event
+                 may access f->top_bar_items.  Make sure we update both
+                 variables within BLOCK_INPUT so no such event interrupts.  */
+              block_input ();
+              fset_top_bar_items (f, new_top_bar);
+              f->n_top_bar_items = new_n_top_bar;
+              w->update_mode_line = true;
+              unblock_input ();
+            }
+
+	  unbind_to (count, Qnil);
+	  set_buffer_internal_1 (prev);
+	}
+    }
+}
+
 /* Redisplay the tab bar in the frame for window W.
 
    The tab bar of X frames that don't have X toolkit support is
@@ -13765,6 +13872,23 @@ display_tab_bar (struct window *w)
   compute_line_metrics (&it);
 }
 
+/* Redisplay the top bar in the frame for window W.
+
+   The top bar of X frames that don't have X toolkit support is
+   displayed in a special window W->frame->top_bar_window.
+
+   The top bar of terminal frames is treated specially as far as
+   glyph matrices are concerned.  Top bar lines are not part of
+   windows, so the update is done directly on the frame matrix rows
+   for the top bar.  */
+
+static void
+display_top_bar (struct window *w)
+{
+  /* Don't do all this for graphical frames.  */
+  return;
+}
+
 #ifdef HAVE_WINDOW_SYSTEM
 
 /* Set F->desired_tab_bar_string to a Lisp string representing frame
@@ -13803,6 +13927,48 @@ build_desired_tab_bar_string (struct frame *f)
 
       f->desired_tab_bar_string =
 	concat2 (f->desired_tab_bar_string, caption);
+
+#undef PROP
+    }
+}
+
+
+/* Set F->desired_top_bar_string to a Lisp string representing frame
+   F's desired top-bar contents.  F->top_bar_items must have
+   been set up previously by calling prepare_menu_bars.  */
+
+static void
+build_desired_top_bar_string (struct frame *f)
+{
+  int i;
+  Lisp_Object caption;
+
+  caption = Qnil;
+
+  /* Prepare F->desired_top_bar_string.  Make a new string.  */
+  fset_desired_top_bar_string (f, build_string (""));
+
+  /* Put a `display' property on the string for the captions to display,
+     put a `menu_item' property on top-bar items with a value that
+     is the index of the item in F's top-bar item vector.  */
+  for (i = 0; i < f->n_top_bar_items; ++i)
+    {
+#define PROP(IDX) \
+  AREF (f->top_bar_items, i * TOP_BAR_ITEM_NSLOTS + (IDX))
+
+      caption = Fcopy_sequence (PROP (TOP_BAR_ITEM_CAPTION));
+
+      /* Put a `display' text property on the string for the caption to
+	 display.  Put a `menu-item' property on the string that gives
+	 the start of this item's properties in the top-bar items
+	 vector.  */
+      AUTO_LIST2 (props, Qmenu_item, make_fixnum (i * TOP_BAR_ITEM_NSLOTS));
+
+      Fadd_text_properties (make_fixnum (0), make_fixnum (SCHARS (caption)),
+			    props, caption);
+
+      f->desired_top_bar_string =
+	concat2 (f->desired_top_bar_string, caption);
 
 #undef PROP
     }
@@ -13944,6 +14110,140 @@ display_tab_bar_line (struct it *it, int height)
 }
 
 
+/* Display one line of the top-bar of frame IT->f.
+
+   HEIGHT specifies the desired height of the top-bar line.
+   If the actual height of the glyph row is less than HEIGHT, the
+   row's height is increased to HEIGHT, and the icons are centered
+   vertically in the new height.
+
+   If HEIGHT is -1, we are counting needed top-bar lines, so don't
+   count a final empty row in case the top-bar width exactly matches
+   the window width.
+*/
+
+static void
+display_top_bar_line (struct it *it, int height)
+{
+  struct glyph_row *row = it->glyph_row;
+  int max_x = it->last_visible_x;
+  struct glyph *last;
+
+  /* Don't extend on a previously drawn top bar items (Bug#16058).  */
+  clear_glyph_row (row);
+  row->enabled_p = true;
+  row->y = it->current_y;
+
+  /* Note that this isn't made use of if the face hasn't a box,
+     so there's no need to check the face here.  */
+  it->start_of_box_run_p = true;
+
+  bool enough = false;
+  while (it->current_x < max_x)
+    {
+      int x, n_glyphs_before, i, nglyphs;
+      struct it it_before;
+
+      /* Get the next display element.  */
+      if (!get_next_display_element (it))
+	{
+	  /* Don't count empty row if we are counting needed top-bar lines.  */
+	  if (height < 0 && !it->hpos)
+	    return;
+	  break;
+	}
+
+      /* Produce glyphs.  */
+      n_glyphs_before = row->used[TEXT_AREA];
+      it_before = *it;
+
+      PRODUCE_GLYPHS (it);
+
+      nglyphs = row->used[TEXT_AREA] - n_glyphs_before;
+      i = 0;
+      x = it_before.current_x;
+      while (i < nglyphs)
+	{
+	  struct glyph *glyph = row->glyphs[TEXT_AREA] + n_glyphs_before + i;
+
+	  if (x + glyph->pixel_width > max_x)
+	    {
+	      /* Glyph doesn't fit on line.  Backtrack.  */
+	      row->used[TEXT_AREA] = n_glyphs_before;
+	      *it = it_before;
+	      /* If this is the only glyph on this line, it will never fit on the
+		 top-bar, so skip it.  But ensure there is at least one glyph,
+		 so we don't accidentally disable the top-bar.  */
+	      if (n_glyphs_before == 0
+		  && (it->vpos > 0 || IT_STRING_CHARPOS (*it) < it->end_charpos-1))
+		break;
+	      goto out;
+	    }
+
+	  ++it->hpos;
+	  x += glyph->pixel_width;
+	  ++i;
+	}
+
+      enough = ITERATOR_AT_END_OF_LINE_P (it);
+      set_iterator_to_next (it, true);
+
+      /* Stop at line end.  */
+      if (enough)
+	break;
+    }
+
+ out:;
+
+  row->displays_text_p = row->used[TEXT_AREA] != 0;
+
+  /* Use default face for the border below the top bar.
+
+     FIXME: When auto-resize-top-bars is grow-only, there is
+     no additional border below the possibly empty top-bar lines.
+     So to make the extra empty lines look "normal", we have to
+     use the top-bar face for the border too.  */
+  if (!MATRIX_ROW_DISPLAYS_TEXT_P (row)
+      && !EQ (Vauto_resize_top_bars, Qgrow_only))
+    it->face_id = DEFAULT_FACE_ID;
+
+  extend_face_to_end_of_line (it);
+  last = row->glyphs[TEXT_AREA] + row->used[TEXT_AREA] - 1;
+  last->right_box_line_p = true;
+  if (last == row->glyphs[TEXT_AREA])
+    last->left_box_line_p = true;
+
+  /* Make line the desired height and center it vertically.  */
+  if ((height -= it->max_ascent + it->max_descent) > 0)
+    {
+      /* Don't add more than one line height.  */
+      height %= FRAME_LINE_HEIGHT (it->f);
+      it->max_ascent += height / 2;
+      it->max_descent += (height + 1) / 2;
+    }
+
+  compute_line_metrics (it);
+
+  /* If line is empty, make it occupy the rest of the top-bar.  */
+  if (!MATRIX_ROW_DISPLAYS_TEXT_P (row))
+    {
+      row->height = row->phys_height = it->last_visible_y - row->y;
+      row->visible_height = row->height;
+      row->ascent = row->phys_ascent = 0;
+      row->extra_line_spacing = 0;
+    }
+
+  row->full_width_p = true;
+  row->continued_p = false;
+  row->truncated_on_left_p = false;
+  row->truncated_on_right_p = false;
+
+  it->current_x = it->hpos = 0;
+  it->current_y += row->height;
+  ++it->vpos;
+  ++it->glyph_row;
+}
+
 /* Value is the number of pixels needed to make all tab-bar items of
    frame F visible.  The actual number of glyph rows needed is
    returned in *N_ROWS if non-NULL.  */
@@ -14010,6 +14310,72 @@ PIXELWISE non-nil means return the height of the tab bar in pixels.  */)
   return make_fixnum (height);
 }
 
+
+/* Value is the number of pixels needed to make all top-bar items of
+   frame F visible.  The actual number of glyph rows needed is
+   returned in *N_ROWS if non-NULL.  */
+static int
+top_bar_height (struct frame *f, int *n_rows, bool pixelwise)
+{
+  struct window *w = XWINDOW (f->top_bar_window);
+  struct it it;
+  /* top_bar_height is called from redisplay_top_bar after building
+     the desired matrix, so use (unused) mode-line row as temporary row to
+     avoid destroying the first top-bar row.  */
+  struct glyph_row *temp_row = MATRIX_MODE_LINE_ROW (w->desired_matrix);
+
+  /* Initialize an iterator for iteration over
+     F->desired_top_bar_string in the top-bar window of frame F.  */
+  init_iterator (&it, w, -1, -1, temp_row, TOP_BAR_FACE_ID);
+  temp_row->reversed_p = false;
+  it.first_visible_x = 0;
+  it.last_visible_x = WINDOW_PIXEL_WIDTH (w);
+  reseat_to_string (&it, NULL, f->desired_top_bar_string,
+                    0, 0, 0, STRING_MULTIBYTE (f->desired_top_bar_string));
+  it.paragraph_embedding = L2R;
+
+  clear_glyph_row (temp_row);
+  while (!ITERATOR_AT_END_P (&it))
+    {
+      it.glyph_row = temp_row;
+      display_top_bar_line (&it, -1);
+    }
+  clear_glyph_row (temp_row);
+
+  /* f->n_top_bar_rows == 0 means "unknown"; -1 means no top-bar.  */
+  if (n_rows)
+    *n_rows = it.vpos > 0 ? it.vpos : -1;
+
+  if (pixelwise)
+    return it.current_y;
+  else
+    return (it.current_y + FRAME_LINE_HEIGHT (f) - 1) / FRAME_LINE_HEIGHT (f);
+}
+
+DEFUN ("top-bar-height", Ftop_bar_height, Stop_bar_height,
+       0, 2, 0,
+       doc: /* Return the number of lines occupied by the top bar of FRAME.
+If FRAME is nil or omitted, use the selected frame.  Optional argument
+PIXELWISE non-nil means return the height of the top bar in pixels.  */)
+  (Lisp_Object frame, Lisp_Object pixelwise)
+{
+  int height = 0;
+
+  struct frame *f = decode_any_frame (frame);
+
+  if (WINDOWP (f->top_bar_window)
+      && WINDOW_PIXEL_HEIGHT (XWINDOW (f->top_bar_window)) > 0)
+    {
+      update_top_bar (f, true);
+      if (f->n_top_bar_items)
+	{
+	  build_desired_top_bar_string (f);
+	  height = top_bar_height (f, NULL, !NILP (pixelwise));
+	}
+    }
+
+  return make_fixnum (height);
+}
 
 /* Display the tab-bar of frame F.  Value is true if tab-bar's
    height should be changed.  */
@@ -14175,6 +14541,174 @@ redisplay_tab_bar (struct frame *f)
     }
 
   f->minimize_tab_bar_window_p = false;
+  return false;
+}
+
+
+/* Display the top-bar of frame F.  Value is true if top-bar's
+   height should be changed.  */
+static bool
+redisplay_top_bar (struct frame *f)
+{
+  struct window *w;
+  struct it it;
+  struct glyph_row *row;
+
+  f->top_bar_redisplayed = true;
+
+  /* If frame hasn't a top-bar window or if it is zero-height, don't
+     do anything.  This means you must start with top-bar-lines
+     non-zero to get the auto-sizing effect.  Or in other words, you
+     can turn off top-bars by specifying top-bar-lines zero.  */
+  if (!WINDOWP (f->top_bar_window)
+      || (w = XWINDOW (f->top_bar_window),
+          WINDOW_TOTAL_LINES (w) == 0))
+    {
+      /* Even if we do not display a top bar initially, still pretend
+	 that we have resized it.  This avoids that a later activation
+	 of the top bar resizes the frame, despite of the fact that the
+	 setting of 'frame-inhibit-implied-resize' should inhibit it
+	 (Bug#52986).  */
+      f->top_bar_resized = true;
+
+      return false;
+    }
+
+  /* Set up an iterator for the top-bar window.  */
+  init_iterator (&it, w, -1, -1, w->desired_matrix->rows, TOP_BAR_FACE_ID);
+  it.first_visible_x = 0;
+  it.last_visible_x = WINDOW_PIXEL_WIDTH (w);
+  row = it.glyph_row;
+  row->reversed_p = false;
+
+  /* Build a string that represents the contents of the top-bar.  */
+  build_desired_top_bar_string (f);
+  reseat_to_string (&it, NULL, f->desired_top_bar_string, 0, 0, 0,
+                    STRING_MULTIBYTE (f->desired_top_bar_string));
+  /* FIXME: This should be controlled by a user option.  But it
+     doesn't make sense to have an R2L top bar if the menu bar cannot
+     be drawn also R2L, and making the menu bar R2L is tricky due
+     tabkit-specific code that implements it.  If an R2L top bar is
+     ever supported, display_top_bar_line should also be augmented to
+     call unproduce_glyphs like display_line and display_string
+     do.  */
+  it.paragraph_embedding = L2R;
+
+  if (f->n_top_bar_rows == 0)
+    {
+      int new_height = top_bar_height (f, &f->n_top_bar_rows, true);
+
+      if (new_height != WINDOW_PIXEL_HEIGHT (w))
+	{
+          if (FRAME_TERMINAL (f)->change_top_bar_height_hook)
+            FRAME_TERMINAL (f)->change_top_bar_height_hook (f, new_height);
+	  frame_default_top_bar_height = new_height;
+	  /* Always do that now.  */
+	  clear_glyph_matrix (w->desired_matrix);
+	  f->fonts_changed = true;
+	  return true;
+	}
+    }
+
+  /* Display as many lines as needed to display all top-bar items.  */
+
+  if (f->n_top_bar_rows > 0)
+    {
+      int border, rows, height, extra;
+
+      if (TYPE_RANGED_FIXNUMP (int, Vtop_bar_border))
+	border = XFIXNUM (Vtop_bar_border);
+      else if (EQ (Vtop_bar_border, Qinternal_border_width))
+	border = FRAME_INTERNAL_BORDER_WIDTH (f);
+      else if (EQ (Vtop_bar_border, Qborder_width))
+	border = f->border_width;
+      else
+	border = 0;
+      if (border < 0)
+	border = 0;
+
+      rows = f->n_top_bar_rows;
+      height = max (1, (it.last_visible_y - border) / rows);
+      extra = it.last_visible_y - border - height * rows;
+
+      while (it.current_y < it.last_visible_y)
+	{
+	  int h = 0;
+	  if (extra > 0 && rows-- > 0)
+	    {
+	      h = (extra + rows - 1) / rows;
+	      extra -= h;
+	    }
+	  display_top_bar_line (&it, height + h);
+	}
+    }
+  else
+    {
+      while (it.current_y < it.last_visible_y)
+	display_top_bar_line (&it, 0);
+    }
+
+  /* It doesn't make much sense to try scrolling in the top-bar
+     window, so don't do it.  */
+  w->desired_matrix->no_scrolling_p = true;
+  w->must_be_updated_p = true;
+
+  if (!NILP (Vauto_resize_top_bars))
+    {
+      bool change_height_p = true;
+
+      /* If we couldn't display everything, change the top-bar's
+	 height if there is room for more.  */
+      if (IT_STRING_CHARPOS (it) < it.end_charpos)
+	change_height_p = true;
+
+      /* We subtract 1 because display_top_bar_line advances the
+	 glyph_row pointer before returning to its caller.  We want to
+	 examine the last glyph row produced by
+	 display_top_bar_line.  */
+      row = it.glyph_row - 1;
+
+      /* If there are blank lines at the end, except for a partially
+	 visible blank line at the end that is smaller than
+	 FRAME_LINE_HEIGHT, change the top-bar's height.  */
+      if (!MATRIX_ROW_DISPLAYS_TEXT_P (row)
+	  && row->height >= FRAME_LINE_HEIGHT (f))
+	change_height_p = true;
+
+      /* If row displays top-bar items, but is partially visible,
+	 change the top-bar's height.  */
+      if (MATRIX_ROW_DISPLAYS_TEXT_P (row)
+	  && MATRIX_ROW_BOTTOM_Y (row) > it.last_visible_y)
+	change_height_p = true;
+
+      /* Resize windows as needed by changing the `top-bar-lines'
+	 frame parameter.  */
+      if (change_height_p)
+	{
+	  int nrows;
+	  int new_height = top_bar_height (f, &nrows, true);
+
+	  change_height_p = ((EQ (Vauto_resize_top_bars, Qgrow_only)
+			      && !f->minimize_top_bar_window_p)
+			     ? (new_height > WINDOW_PIXEL_HEIGHT (w))
+			     : (new_height != WINDOW_PIXEL_HEIGHT (w)));
+	  f->minimize_top_bar_window_p = false;
+
+	  if (change_height_p)
+	    {
+              if (FRAME_TERMINAL (f)->change_top_bar_height_hook)
+                FRAME_TERMINAL (f)->change_top_bar_height_hook (f, new_height);
+	      frame_default_top_bar_height = new_height;
+	      clear_glyph_matrix (w->desired_matrix);
+	      f->n_top_bar_rows = nrows;
+	      f->fonts_changed = true;
+
+	      return true;
+	    }
+	}
+    }
+
+  f->minimize_top_bar_window_p = false;
   return false;
 }
 
@@ -19968,6 +20502,12 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
 	      && redisplay_tab_bar (f))
 	    ignore_mouse_drag_p = true;
 
+	  if (WINDOWP (f->top_bar_window)
+	      && (FRAME_TOP_BAR_LINES (f) > 0
+		  || !NILP (Vauto_resize_top_bars))
+	      && redisplay_top_bar (f))
+	    ignore_mouse_drag_p = true;
+
 #ifdef HAVE_EXT_TOOL_BAR
 	  if (FRAME_EXTERNAL_TOOL_BAR (f))
 	    update_frame_tool_bar (f);
@@ -19983,12 +20523,16 @@ redisplay_window (Lisp_Object window, bool just_this_one_p)
         {
           if ((FRAME_TAB_BAR_LINES (f) > 0))
             display_tab_bar (w);
+          if ((FRAME_TOP_BAR_LINES (f) > 0))
+            display_top_bar (w);
         }
 
       gui_consider_frame_title (w->frame);
 #else
       if ((FRAME_TAB_BAR_LINES (f) > 0))
         display_tab_bar (w);
+      if ((FRAME_TOP_BAR_LINES (f) > 0))
+        display_top_bar (w);
 #endif
     }
 
@@ -26961,6 +27505,7 @@ are the selected window and the WINDOW's buffer).  */)
     : EQ (face, Qheader_line) ? HEADER_LINE_FACE_ID
     : EQ (face, Qtab_line) ? TAB_LINE_FACE_ID
     : EQ (face, Qtab_bar) ? TAB_BAR_FACE_ID
+    : EQ (face, Qtop_bar) ? TOP_BAR_FACE_ID
     : EQ (face, Qtool_bar) ? TOOL_BAR_FACE_ID
     : DEFAULT_FACE_ID;
 
@@ -35660,6 +36205,7 @@ be let-bound around code that needs to disable messages temporarily. */);
 #endif
 #ifdef HAVE_WINDOW_SYSTEM
   defsubr (&Stab_bar_height);
+  defsubr (&Stop_bar_height);
   defsubr (&Stool_bar_height);
   defsubr (&Slookup_image_map);
 #endif
@@ -36123,6 +36669,15 @@ after setting `recenter-redisplay' to the value of t.  */);
     doc: /* Non-nil means raise tab-bar buttons when the mouse moves over them.  */);
   auto_raise_tab_bar_buttons_p = true;
 
+  DEFVAR_LISP ("auto-resize-top-bars", Vauto_resize_top_bars,
+    doc: /* Non-nil means automatically resize top-bars.
+This dynamically changes the top-bar's height to the minimum height
+that is needed to make all top-bar items visible.
+If value is `grow-only', the top-bar's height is only increased
+automatically; to decrease the top-bar height, use \\[recenter],
+after setting `recenter-redisplay' to the value of t.  */);
+  Vauto_resize_top_bars = Qt;
+
   DEFVAR_LISP ("auto-resize-tool-bars", Vauto_resize_tool_bars,
     doc: /* Non-nil means automatically resize tool-bars.
 This dynamically changes the tool-bar's height to the minimum height
@@ -36160,6 +36715,14 @@ If it is one of `internal-border-width' or `border-width', use the
 value of the corresponding frame parameter.
 Otherwise, no border is added below the tab-bar.  */);
   Vtab_bar_border = Qinternal_border_width;
+
+  DEFVAR_LISP ("top-bar-border", Vtop_bar_border,
+    doc: /* Border below top-bar in pixels.
+If an integer, use it as the height of the border.
+If it is one of `internal-border-width' or `border-width', use the
+value of the corresponding frame parameter.
+Otherwise, no border is added below the top-bar.  */);
+  Vtop_bar_border = Qinternal_border_width;
 
   DEFVAR_LISP ("tab-bar-button-margin", Vtab_bar_button_margin,
     doc: /* Margin around tab-bar buttons in pixels.

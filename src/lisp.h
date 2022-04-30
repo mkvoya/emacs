@@ -4792,6 +4792,7 @@ extern sigjmp_buf return_to_command_loop;
 #endif
 extern Lisp_Object menu_bar_items (Lisp_Object);
 extern Lisp_Object tab_bar_items (Lisp_Object, int *);
+extern Lisp_Object top_bar_items (Lisp_Object, int *);
 extern Lisp_Object tool_bar_items (Lisp_Object, int *);
 extern void discard_mouse_events (void);
 #if defined (USABLE_SIGIO) || defined (USABLE_SIGPOLL)
