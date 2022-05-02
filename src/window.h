@@ -768,6 +768,15 @@ wset_next_buffers (struct window *w, Lisp_Object val)
 # define WINDOW_TAB_BAR_P(W) false
 #endif
 
+/* True if W is a top bar window.  */
+#if defined (HAVE_WINDOW_SYSTEM) && !defined (HAVE_PGTK)
+# define WINDOW_TOP_BAR_P(W) \
+   (WINDOWP (WINDOW_XFRAME (W)->top_bar_window) \
+    && (W) == XWINDOW (WINDOW_XFRAME (W)->top_bar_window))
+#else
+# define WINDOW_TOP_BAR_P(W) false
+#endif
+
 /* True if W is a tool bar window.  */
 #if defined (HAVE_WINDOW_SYSTEM) && ! defined (HAVE_EXT_TOOL_BAR)
 #define WINDOW_TOOL_BAR_P(W) \
@@ -779,13 +788,13 @@ wset_next_buffers (struct window *w, Lisp_Object val)
 
 /* Return the frame y-position at which window W starts.  */
 #define WINDOW_TOP_EDGE_Y(W) \
-  (((WINDOW_MENU_BAR_P (W) || WINDOW_TAB_BAR_P (W) || WINDOW_TOOL_BAR_P (W)) \
+  (((WINDOW_MENU_BAR_P (W) || WINDOW_TAB_BAR_P (W) || WINDOW_TOP_BAR_P (W) || WINDOW_TOOL_BAR_P (W)) \
     ? 0 : FRAME_INTERNAL_BORDER_WIDTH (WINDOW_XFRAME (W))) \
    + WINDOW_TOP_PIXEL_EDGE (W))
 
 /* Return the frame y-position before which window W ends.  */
 #define WINDOW_BOTTOM_EDGE_Y(W)				   \
-  (((WINDOW_MENU_BAR_P (W) || WINDOW_TAB_BAR_P (W) || WINDOW_TOOL_BAR_P (W))	   \
+  (((WINDOW_MENU_BAR_P (W) || WINDOW_TAB_BAR_P (W) || WINDOW_TOP_BAR_P (W) || WINDOW_TOOL_BAR_P (W)) \
     ? 0 : FRAME_INTERNAL_BORDER_WIDTH (WINDOW_XFRAME (W))) \
    + WINDOW_BOTTOM_PIXEL_EDGE (W))
 
@@ -1102,7 +1111,7 @@ extern Lisp_Object minibuf_selected_window;
 
 extern Lisp_Object make_window (void);
 extern Lisp_Object window_from_coordinates (struct frame *, int, int,
-                                            enum window_part *, bool, bool);
+                                            enum window_part *, bool, bool, bool);
 extern void resize_frame_windows (struct frame *, int, bool);
 extern void restore_window_configuration (Lisp_Object);
 extern void delete_all_child_windows (Lisp_Object);

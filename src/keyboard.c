@@ -2502,7 +2502,8 @@ read_char (int commandflag, Lisp_Object map,
       if (used_mouse_menu
 	  /* Also check was_disabled so last-nonmenu-event won't return
 	     a bad value when submenus are involved.  (Bug#447)  */
-	  && (EQ (c, Qtool_bar) || EQ (c, Qtab_bar) || EQ (c, Qmenu_bar)
+	  && (EQ (c, Qtool_bar) || EQ (c, Qtab_bar) || EQ(c, Qtop_bar)
+	      || EQ (c, Qmenu_bar)
 	      || was_disabled))
 	*used_mouse_menu = true;
 
@@ -2785,6 +2786,7 @@ read_char (int commandflag, Lisp_Object map,
       && EVENT_HAS_PARAMETERS (prev_event)
       && !EQ (XCAR (prev_event), Qmenu_bar)
       && !EQ (XCAR (prev_event), Qtab_bar)
+      && !EQ (XCAR (prev_event), Qtop_bar)
       && !EQ (XCAR (prev_event), Qtool_bar)
       /* Don't bring up a menu if we already have another event.  */
       && !CONSP (Vunread_command_events))
@@ -3041,7 +3043,8 @@ read_char (int commandflag, Lisp_Object map,
       posn = POSN_POSN (xevent_start (c));
       /* Handle menu-bar events:
 	 insert the dummy prefix event `menu-bar'.  */
-      if (EQ (posn, Qmenu_bar) || EQ (posn, Qtab_bar) || EQ (posn, Qtool_bar))
+      if (EQ (posn, Qmenu_bar) || EQ (posn, Qtab_bar) || EQ(posn, Qtop_bar)
+	  || EQ (posn, Qtool_bar))
 	{
 	  /* Change menu-bar to (menu-bar) as the event "position".  */
 	  POSN_SET_POSN (xevent_start (c), list1 (posn));
@@ -4260,6 +4263,7 @@ kbd_buffer_get_event (KBOARD **kbp,
 		  && !EQ (event->ie.frame_or_window, event->ie.arg)
 		  && (event->kind == MENU_BAR_EVENT
 		      || event->kind == TAB_BAR_EVENT
+		      || event->kind == TOP_BAR_EVENT
 		      || event->kind == TOOL_BAR_EVENT))
 		*used_mouse_menu = true;
 #endif
@@ -5320,7 +5324,7 @@ make_lispy_position (struct frame *f, Lisp_Object x, Lisp_Object y,
   int xret = 0, yret = 0;
   /* The window or frame under frame pixel coordinates (x,y)  */
   Lisp_Object window_or_frame = f
-    ? window_from_coordinates (f, mx, my, &part, true, true)
+    ? window_from_coordinates (f, mx, my, &part, true, true, true)
     : Qnil;
 #ifdef HAVE_WINDOW_SYSTEM
   bool tool_bar_p = false;
@@ -5330,6 +5334,8 @@ make_lispy_position (struct frame *f, Lisp_Object x, Lisp_Object y,
      tool bar.  */
   if (f && ((WINDOWP (f->tab_bar_window)
 	     && EQ (window_or_frame, f->tab_bar_window))
+	    || (WINDOWP (f->top_bar_window)
+		&& EQ (window_or_frame, f->top_bar_window))
 #ifndef HAVE_EXT_TOOL_BAR
 	    || (WINDOWP (f->tool_bar_window)
 		&& EQ (window_or_frame, f->tool_bar_window))
@@ -5350,7 +5356,8 @@ make_lispy_position (struct frame *f, Lisp_Object x, Lisp_Object y,
 	 values of 'track-mouse' and their documentation in the Elisp
 	 manual.  */
       if (NILP (track_mouse) || EQ (track_mouse, Qt))
-	posn = EQ (window_or_frame, f->tab_bar_window) ? Qtab_bar : Qtool_bar;
+	posn = EQ (window_or_frame, f->tab_bar_window) ? Qtab_bar
+	  : (EQ (window_or_frame, f->top_bar_window) ? Qtop_bar : Qtool_bar);
       /* Kludge alert: for mouse events on the tab bar and tool bar,
 	 keyboard.c wants the frame, not the special-purpose window
 	 we use to display those, and it wants frame-relative
@@ -5379,6 +5386,16 @@ make_lispy_position (struct frame *f, Lisp_Object x, Lisp_Object y,
       && my < FRAME_MENU_BAR_LINES (f) + FRAME_TAB_BAR_LINES (f))
     {
       posn = Qtab_bar;
+      window_or_frame = Qnil;	/* see above */
+    }
+
+  if (f
+      && !FRAME_WINDOW_P (f)
+      && FRAME_TOP_BAR_LINES (f) > 0
+      && my >= FRAME_MENU_BAR_LINES (f) + FRAME_TAB_BAR_LINES (f)
+      && my < FRAME_MENU_BAR_LINES (f) + FRAME_TAB_BAR_LINES (f) + FRAME_TOP_BAR_LINES (f))
+    {
+      posn = Qtop_bar;
       window_or_frame = Qnil;	/* see above */
     }
 
@@ -5949,6 +5966,8 @@ make_lispy_event (struct input_event *event)
 	       button information as OBJECT member of POSITION.  */
 	    if (CONSP (event->arg) && EQ (XCAR (event->arg), Qtab_bar))
 	      position = nconc2 (position, Fcons (XCDR (event->arg), Qnil));
+	    if (CONSP (event->arg) && EQ (XCAR (event->arg), Qtop_bar))
+	      position = nconc2 (position, Fcons (XCDR (event->arg), Qnil));
 	  }
 #ifndef USE_TOOLKIT_SCROLL_BARS
 	else
@@ -6126,12 +6145,19 @@ make_lispy_event (struct input_event *event)
 	  /* Get the symbol we should use for the mouse click.  */
 	  Lisp_Object head;
 
+
 	  head = modify_event_symbol (button,
 				      event->modifiers,
 				      Qmouse_click, Vlispy_mouse_stem,
 				      NULL,
 				      &mouse_syms,
 				      ASIZE (mouse_syms));
+
+	  /* NOTE(mkvoya):
+	   debug_print(head);
+	   debug_print(position);
+	  */
+
 	  if (event->modifiers & drag_modifier)
 	    return list3 (head, start_pos, position);
 	  else if (event->modifiers & (double_modifier | triple_modifier))
@@ -6429,6 +6455,13 @@ make_lispy_event (struct input_event *event)
       /* Make an event (select-window (WINDOW)).  */
       return list2 (Qselect_window, list1 (event->frame_or_window));
 
+    case TOP_BAR_EVENT:
+      {
+	Lisp_Object res = event->arg;
+	Lisp_Object location = Qtop_bar;
+	if (SYMBOLP (res)) res = apply_modifiers (event->modifiers, res);
+	return list2 (res, list2 (event->frame_or_window, location));
+      }
     case TAB_BAR_EVENT:
     case TOOL_BAR_EVENT:
       {
@@ -9221,6 +9254,7 @@ read_char_x_menu_prompt (Lisp_Object map,
   if (EVENT_HAS_PARAMETERS (prev_event)
       && !EQ (XCAR (prev_event), Qmenu_bar)
       && !EQ (XCAR (prev_event), Qtab_bar)
+      && !EQ (XCAR (prev_event), Qtop_bar)
       && !EQ (XCAR (prev_event), Qtool_bar))
     {
       /* Display the menu and get the selection.  */
@@ -10210,7 +10244,8 @@ read_key_sequence (Lisp_Object *keybuf, Lisp_Object prompt,
 	      posn = POSN_POSN (xevent_start (key));
 	      /* Handle menu-bar events:
 		 insert the dummy prefix event `menu-bar'.  */
-	      if (EQ (posn, Qmenu_bar) || EQ (posn, Qtab_bar) || EQ (posn, Qtool_bar))
+	      if (EQ (posn, Qmenu_bar) || EQ (posn, Qtab_bar)
+		  || EQ(posn, Qtop_bar) || EQ (posn, Qtool_bar))
 		{
 		  if (READ_KEY_ELTS - t <= 1)
 		    error ("Key sequence too long");

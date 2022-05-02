@@ -1530,7 +1530,7 @@ its value is returned."
             ;; don't look up that position's properties!
             (and pt (not (memq (posn-area pos)
                                '(left-fringe right-fringe
-                                 left-margin right-margin tab-bar)))
+                                 left-margin right-margin tab-bar top-bar)))
                  (get-char-property pt property w))))
     (get-char-property pos property)))
 

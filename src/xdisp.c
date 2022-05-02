@@ -2731,7 +2731,7 @@ remember_mouse_glyph (struct frame *f, int gx, int gy, NativeRectangle *rect)
       goto virtual_glyph;
     }
   else if (!f->glyphs_initialized_p
-	   || (window = window_from_coordinates (f, gx, gy, &part, false, false),
+	   || (window = window_from_coordinates (f, gx, gy, &part, false, false, false),
 	       NILP (window)))
     {
       width = FRAME_SMALLEST_CHAR_WIDTH (f);
@@ -14606,6 +14606,32 @@ note_tab_bar_highlight (struct frame *f, int x, int y)
   help_echo_string = AREF (f->tab_bar_items, prop_idx + TAB_BAR_ITEM_HELP);
   if (NILP (help_echo_string))
     help_echo_string = AREF (f->tab_bar_items, prop_idx + TAB_BAR_ITEM_CAPTION);
+}
+
+
+/* EXPORT:
+   Handle mouse button event on the top-bar of frame F, at
+   frame-relative coordinates X/Y.  DOWN_P is true for a button press,
+   false for button release.  MODIFIERS is event modifiers for button
+   release.  */
+
+Lisp_Object
+handle_top_bar_click (struct frame *f, int x, int y, bool down_p,
+		      int modifiers)
+{
+  printf ("[%s] i'm here.\n", __func__);
+  return Fcons (Qtab_bar, Qnil);
+}
+
+
+/* Possibly highlight a top-bar item on frame F when mouse moves to
+   top-bar window-relative coordinates X/Y.  Called from
+   note_mouse_highlight.  */
+
+static void
+note_top_bar_highlight (struct frame *f, int x, int y)
+{
+  return;
 }
 
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -34575,7 +34601,7 @@ note_mouse_highlight (struct frame *f, int x, int y)
     return;
 
   /* Which window is that in?  */
-  window = window_from_coordinates (f, x, y, &part, true, true);
+  window = window_from_coordinates (f, x, y, &part, true, true, true);
 
   /* If displaying active text in another window, clear that.  */
   if (! EQ (window, hlinfo->mouse_face_window)
@@ -34695,6 +34721,13 @@ note_mouse_highlight (struct frame *f, int x, int y)
 	 f->last_tab_bar_item must be reset, in order to make sure the
 	 item can be still highlighted again in the future.  */
       f->last_tab_bar_item = -1;
+    }
+  /* Handle top-bar window differently since it doesn't display a
+     buffer.  */
+  if (EQ (window, f->top_bar_window))
+    {
+      note_top_bar_highlight (f, x, y);
+      return;
     }
 #endif
 

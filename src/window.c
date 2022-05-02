@@ -1628,7 +1628,8 @@ check_window_containing (struct window *w, void *user_data)
 
 Lisp_Object
 window_from_coordinates (struct frame *f, int x, int y,
-			 enum window_part *part, bool tab_bar_p, bool tool_bar_p)
+			 enum window_part *part, bool tab_bar_p, bool top_bar_p,
+			 bool tool_bar_p)
 {
   Lisp_Object window;
   struct check_window_data cw;
@@ -1653,6 +1654,18 @@ window_from_coordinates (struct frame *f, int x, int y,
     {
       *part = ON_TEXT;
       window = f->tab_bar_window;
+    }
+  /* If not found above, see if it's in the top bar window, if a top
+     bar exists.  */
+  if (NILP (window)
+      && top_bar_p
+      && WINDOWP (f->top_bar_window)
+      && WINDOW_TOTAL_LINES (XWINDOW (f->top_bar_window)) > 0
+      && (coordinates_in_window (XWINDOW (f->top_bar_window), x, y)
+	  != ON_NOTHING))
+    {
+      *part = ON_TEXT;
+      window = f->top_bar_window;
     }
 #endif
 
@@ -1691,7 +1704,7 @@ column 0.  */)
 				   + FRAME_INTERNAL_BORDER_WIDTH (f)),
 				  (FRAME_PIXEL_Y_FROM_CANON_Y (f, y)
 				   + FRAME_INTERNAL_BORDER_WIDTH (f)),
-				  0, false, false);
+				  0, false, false, false);
 }
 
 ptrdiff_t
@@ -6822,11 +6835,11 @@ struct save_window_data
     int frame_cols, frame_lines;
     /* These three should get eventually replaced by their pixel
        counterparts.  */
-    int frame_menu_bar_lines, frame_tab_bar_lines, frame_tool_bar_lines;
+    int frame_menu_bar_lines, frame_tab_bar_lines, frame_top_bar_lines, frame_tool_bar_lines;
     int frame_text_width, frame_text_height;
     /* These are currently unused.  We need them as soon as we convert
        to pixels.  */
-    int frame_menu_bar_height, frame_tab_bar_height, frame_tool_bar_height;
+    int frame_menu_bar_height, frame_tab_bar_height, frame_top_bar_height, frame_tool_bar_height;
   } GCALIGNED_STRUCT;
 
 /* This is saved as a Lisp_Vector.  */
@@ -7525,11 +7538,13 @@ saved by this function.  */)
   data->frame_lines = FRAME_LINES (f);
   data->frame_menu_bar_lines = FRAME_MENU_BAR_LINES (f);
   data->frame_tab_bar_lines = FRAME_TAB_BAR_LINES (f);
+  data->frame_top_bar_lines = FRAME_TOP_BAR_LINES (f);
   data->frame_tool_bar_lines = FRAME_TOOL_BAR_LINES (f);
   data->frame_text_width = FRAME_TEXT_WIDTH (f);
   data->frame_text_height = FRAME_TEXT_HEIGHT (f);
   data->frame_menu_bar_height = FRAME_MENU_BAR_HEIGHT (f);
   data->frame_tab_bar_height = FRAME_TAB_BAR_HEIGHT (f);
+  data->frame_top_bar_height = FRAME_TOP_BAR_HEIGHT (f);
   data->frame_tool_bar_height = FRAME_TOOL_BAR_HEIGHT (f);
   data->selected_frame = selected_frame;
   data->current_window = FRAME_SELECTED_WINDOW (f);

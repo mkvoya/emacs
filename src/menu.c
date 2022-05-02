@@ -1136,8 +1136,11 @@ x_popup_menu_1 (Lisp_Object position, Lisp_Object menu)
 	|| (CONSP (position)
 	    && (EQ (XCAR (position), Qmenu_bar)
 		|| EQ (XCAR (position), Qtab_bar)
+		|| EQ (XCAR (position), Qtop_bar)
 		|| (CONSP (XCDR (position))
 		    && EQ (XCAR (XCDR (position)), Qtab_bar))
+		|| (CONSP (XCDR (position))
+		    && EQ (XCAR (XCDR (position)), Qtop_bar))
 		|| EQ (XCAR (position), Qtool_bar))))
       {
 	get_current_pos_p = 1;
@@ -1530,6 +1533,7 @@ for instance using the window manager, then this produces a quit and
   if (EQ (position, Qt)
       || (CONSP (position) && (EQ (XCAR (position), Qmenu_bar)
 			       || EQ (XCAR (position), Qtab_bar)
+			       || EQ (XCAR (position), Qtop_bar)
 			       || EQ (XCAR (position), Qtool_bar))))
     window = selected_window;
   else if (CONSP (position))

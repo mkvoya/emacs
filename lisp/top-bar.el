@@ -94,14 +94,19 @@ new frame when the global `top-bar-mode' is enabled, by using
 
 (defvar top-bar-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [down-mouse-1] 'ignore)
-    (define-key map [drag-mouse-1] 'ignore)
-    (define-key map [mouse-1]      'ignore)
-    (define-key map [down-mouse-2] 'ignore)
-    (define-key map [mouse-2]      'ignore)
-    (define-key map [down-mouse-3] 'ignore)
+    (define-key map [t] 'ignore)
     map)
   "Keymap for the commands used on the top bar.")
+
+(global-set-key [top-bar]
+                `(menu-item ,(purecopy "top bar") ignore
+                            :filter top-bar-make-keymap))
+
+(defun top-bar-make-keymap (&optional _ignore)
+  "Generate an actual keymap from `tab-bar-map'.
+Its main job is to show tabs in the tab bar
+and to bind mouse events to the commands."
+  tab-bar-map)
 
 (defun top-bar-format-set (format-string &optional frame)
   "Set top bar FORMAT-STRING on the FRAME."

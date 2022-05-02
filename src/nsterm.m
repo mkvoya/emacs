@@ -7183,6 +7183,8 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
     {
       Lisp_Object tab_bar_arg = Qnil;
       bool tab_bar_p = false;
+      Lisp_Object top_bar_arg = Qnil;
+      bool top_bar_p = false;
 
       if (WINDOWP (emacsframe->tab_bar_window)
 	  && WINDOW_TOTAL_LINES (XWINDOW (emacsframe->tab_bar_window)))
@@ -7191,7 +7193,7 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 	  int x = lrint (p.x);
 	  int y = lrint (p.y);
 
-	  window = window_from_coordinates (emacsframe, x, y, 0, true, true);
+	  window = window_from_coordinates (emacsframe, x, y, 0, true, true, true);
 	  tab_bar_p = EQ (window, emacsframe->tab_bar_window);
 
 	  if (tab_bar_p)
@@ -7199,8 +7201,57 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 						EV_MODIFIERS (theEvent) | EV_UDMODIFIERS (theEvent));
 	}
 
-      if (!(tab_bar_p && NILP (tab_bar_arg)))
-	emacs_event->kind = MOUSE_CLICK_EVENT;
+      /* NOTE(mkvoya):
+      printf("[%s] mouse click here %d %d\n", __func__,
+             WINDOWP (emacsframe->top_bar_window),
+             WINDOW_TOTAL_LINES (XWINDOW (emacsframe->top_bar_window))
+             );
+      */
+
+      if (WINDOWP (emacsframe->top_bar_window)
+	  && WINDOW_TOTAL_LINES (XWINDOW (emacsframe->top_bar_window)))
+	{
+	  Lisp_Object window;
+	  int x = lrint (p.x);
+	  int y = lrint (p.y);
+
+	  window = window_from_coordinates (emacsframe, x, y, 0, true, true, true);
+	  top_bar_p = EQ (window, emacsframe->top_bar_window);
+          /* NOTE(mkvoya):
+             printf("[%s] mouse click in topbar? %d\n", __func__, EQ(window, emacsframe->top_bar_window));
+          */
+
+	  if (top_bar_p)
+	    top_bar_arg = handle_top_bar_click (emacsframe, x, y, EV_UDMODIFIERS (theEvent) & down_modifier,
+						EV_MODIFIERS (theEvent) | EV_UDMODIFIERS (theEvent));
+	}
+
+#if 0
+      if (tab_bar_p && !NILP (tab_bar_arg))
+        {
+          emacs_event->kind = TAB_BAR_EVENT;
+          emacs_event->arg = tab_bar_arg;
+        }
+      else if (top_bar_p && !NILP (top_bar_arg))
+        {
+          emacs_event->kind = TOP_BAR_EVENT;
+          emacs_event->arg = top_bar_arg;
+        }
+      else
+        {
+        emacs_event->kind = MOUSE_CLICK_EVENT;
+        emacs_event->arg = Qnil;
+        }
+#else
+      if (!(tab_bar_p && NILP (tab_bar_arg))
+          && !(tab_bar_p && NILP (tab_bar_arg)))
+        emacs_event->kind = MOUSE_CLICK_EVENT;
+#endif
+      /* NOTE(mkvoya):
+      printf("emacs_event->kind=%d (MOUSE_CLIENT=%d, TAB_BAR=%d, TOP_BAB=%d)\n",
+             emacs_event->kind, MOUSE_CLICK_EVENT, TAB_BAR_EVENT, TOP_BAR_EVENT);
+      debug_print(emacs_event->arg);
+      */
       emacs_event->arg = tab_bar_arg;
       emacs_event->code = EV_BUTTON (theEvent);
       emacs_event->modifiers = EV_MODIFIERS (theEvent)
@@ -7293,7 +7344,7 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
       NSTRACE_MSG ("mouse_autoselect_window");
       static Lisp_Object last_mouse_window;
       Lisp_Object window
-	= window_from_coordinates (emacsframe, pt.x, pt.y, 0, 0, 0);
+	= window_from_coordinates (emacsframe, pt.x, pt.y, 0, 0, 0, 0);
 
       if (WINDOWP (window)
           && !EQ (window, last_mouse_window)
