@@ -63,7 +63,7 @@ a list of frames to update."
   ;; It's defined in C/cus-start, this stops the d-m-m macro defining it again.
   :variable top-bar-mode
 
-  (top-bar-format-set "    HILO")
+  (top-bar-format-set "    Emacs Top Bar")
   ;; Recalculate `top-bar-lines' for all frames
   (top-bar--update-top-bar-lines t)
   )
@@ -110,9 +110,7 @@ and to bind mouse events to the commands."
 
 (defun top-bar-format-set (format-string &optional frame)
   "Set top bar FORMAT-STRING on the FRAME."
-  (set-frame-parameter frame 'top-bar-format (propertize format-string
-                                                         'keymap top-bar-map))
-  (set-frame-parameter frame 'top-bar-lines 1))
+  (set-frame-parameter frame 'top-bar-format format-string))
 
 
 

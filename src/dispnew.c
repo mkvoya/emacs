@@ -3261,6 +3261,9 @@ update_frame (struct frame *f, bool force_p, bool inhibit_hairy_id_p)
 	{
 	  struct window *w = XWINDOW (f->top_bar_window);
 
+	  /* NOTE(mkvoya):
+	  printf("[%s] must_be_updated_p=%d\n", __func__, w->must_be_updated_p);
+	  */
 	  /* Update top-bar window.  */
 	  if (w->must_be_updated_p)
 	    {
@@ -3272,10 +3275,13 @@ update_frame (struct frame *f, bool force_p, bool inhibit_hairy_id_p)
 	      /* Swap tab-bar strings.  We swap because we want to
 		 reuse strings.  */
 	      tem = f->current_top_bar_string;
-	      printf("update: %s => %s\n",
+	      /* NOTE(mkvoya):
+	      printf("[%s] update: %s => %s\n",
+		     __func__,
 		     NILP(tem) ? "NIL" : SSDATA(tem),
 		     NILP(f->desired_top_bar_string) ? "NIL" :
 		     SSDATA(f->desired_top_bar_string));
+	      */
 	      fset_current_top_bar_string (f, f->desired_top_bar_string);
 	      fset_desired_top_bar_string (f, tem);
 	    }

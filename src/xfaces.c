@@ -5779,7 +5779,6 @@ realize_default_face (struct frame *f)
 	 acceptable as a font for the default face (perhaps because
 	 auto-scaled fonts are rejected), so we must adjust the frame
 	 font.  */
-      printf("Hello defualt face\n");
       gui_set_font (f, LFACE_FONT (lface), Qnil);
     }
 #endif

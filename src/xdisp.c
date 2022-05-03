@@ -13780,7 +13780,83 @@ display_tab_bar (struct window *w)
 static void
 display_top_bar (struct window *w)
 {
+  struct frame *f = XFRAME (WINDOW_FRAME (w));
+  struct it it;
+  Lisp_Object format = f->top_bar_format;
+  Lisp_Object top_bar_string;
+  int i;
+
   /* Don't do all this for graphical frames.  */
+#ifdef HAVE_NTGUI
+  if (FRAME_W32_P (f))
+    return;
+#endif
+#if defined (USE_X_TOOLKIT) || defined (USE_GTK)
+  if (FRAME_X_P (f))
+    return;
+#endif
+
+#ifdef HAVE_NS
+  if (FRAME_NS_P (f))
+    return;
+#endif /* HAVE_NS */
+
+#if defined (USE_X_TOOLKIT) || defined (USE_GTK)
+  eassert (!FRAME_WINDOW_P (f));
+  init_iterator (&it, w, -1, -1, f->desired_matrix->rows
+                 + (FRAME_MENU_BAR_LINES (f) > 0 ? 1 : 0),
+                 TOP_BAR_FACE_ID);
+  it.first_visible_x = 0;
+  it.last_visible_x = FRAME_PIXEL_WIDTH (f);
+#elif defined (HAVE_X_WINDOWS) /* X without toolkit.  */
+  if (FRAME_WINDOW_P (f))
+    {
+      /* Top bar lines are displayed in the desired matrix of the
+	 dummy window top_bar_window.  */
+      struct window *top_w;
+      top_w = XWINDOW (f->top_bar_window);
+      init_iterator (&it, top_w, -1, -1, top_w->desired_matrix->rows,
+		     TOP_BAR_FACE_ID);
+      it.first_visible_x = 0;
+      it.last_visible_x = FRAME_PIXEL_WIDTH (f);
+    }
+  else
+#endif /* not USE_X_TOOLKIT and not USE_GTK */
+    {
+      /* This is a TTY frame, i.e. character hpos/vpos are used as
+	 pixel x/y.  */
+      init_iterator (&it, w, -1, -1, f->desired_matrix->rows
+                     + (FRAME_MENU_BAR_LINES (f) > 0 ? 1 : 0),
+		     TOP_BAR_FACE_ID);
+      it.first_visible_x = 0;
+      it.last_visible_x = FRAME_COLS (f);
+    }
+
+  /* FIXME: This should be controlled by a user option.  See the
+     comments in redisplay_tool_bar and display_mode_line about
+     this.  */
+  it.paragraph_embedding = L2R;
+
+  /* Clear all rows of the top bar.  */
+  for (i = 0; i < FRAME_TOP_BAR_LINES (f); ++i)
+    {
+      struct glyph_row *row = it.glyph_row + i;
+      clear_glyph_row (row);
+      row->enabled_p = true;
+      row->full_width_p = true;
+      row->reversed_p = false;
+    }
+
+  /* Display all items of the top bar.  */
+  top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
+  display_string (NULL, top_bar_string, Qnil, 0, 0, &it,
+		  SCHARS (top_bar_string), 0, 0, STRING_MULTIBYTE (top_bar_string));
+  /* Fill out the line with spaces.  */
+  if (it.current_x < it.last_visible_x)
+    display_string ("", Qnil, Qnil, 0, 0, &it, -1, 0, 0, -1);
+
+  /* Compute the total height of the lines.  */
+  compute_line_metrics (&it);
   return;
 }
 
@@ -13838,10 +13914,13 @@ build_desired_top_bar_string (struct frame *f)
   Lisp_Object format = f->top_bar_format;
   Lisp_Object top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
 
-  printf("[%s] top bar string: (format: %s) %s\n",
+  /* NOTE(mkvoya):
+  printf("[%s] format: ", __func__); debug_print(format);
+  printf("\n");
+  printf("[%s] top bar string: %s\n",
 	 __func__,
-	 NILP(format) ? "NIL" : SSDATA(format),
 	 SSDATA(top_bar_string));
+  */
   /* Prepare F->desired_top_bar_string.  Make a new string.  */
   fset_desired_top_bar_string (f, top_bar_string);
 }
@@ -14288,6 +14367,9 @@ redisplay_top_bar (struct frame *f)
   struct it it;
   struct glyph_row *row;
 
+  /* NOTE(mkvoya):
+     printf("[%s]\n", __func__);
+  */
   f->top_bar_redisplayed = true;
 
   /* If frame hasn't a top-bar window or if it is zero-height, don't
@@ -14309,10 +14391,13 @@ redisplay_top_bar (struct frame *f)
     }
 
   /* Set up an iterator for the top-bar window.  */
+
   init_iterator (&it, w, -1, -1, w->desired_matrix->rows, TOP_BAR_FACE_ID);
   it.first_visible_x = 0;
   it.last_visible_x = WINDOW_PIXEL_WIDTH (w);
   row = it.glyph_row;
+  /* NOTE(mkvoya): The following line forces the update of top-bar.  */
+  clear_glyph_matrix (w->current_matrix);
   row->reversed_p = false;
 
   /* Build a string that represents the contents of the top-bar.  */
@@ -14619,7 +14704,6 @@ Lisp_Object
 handle_top_bar_click (struct frame *f, int x, int y, bool down_p,
 		      int modifiers)
 {
-  printf ("[%s] i'm here.\n", __func__);
   return Fcons (Qtab_bar, Qnil);
 }
 
