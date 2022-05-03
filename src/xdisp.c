@@ -13912,7 +13912,12 @@ static void
 build_desired_top_bar_string (struct frame *f)
 {
   Lisp_Object format = f->top_bar_format;
-  Lisp_Object top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
+  Lisp_Object top_bar_string;
+  Lisp_Object frame;
+  XSETFRAME (frame, f);
+  Vtop_bar_current_frame = frame;
+  top_bar_string = Fformat_mode_line (format, Qnil, Qnil, Qnil);
+  Vtop_bar_current_frame = Qnil;
 
   /* NOTE(mkvoya):
   printf("[%s] format: ", __func__); debug_print(format);
@@ -36508,6 +36513,10 @@ If it is one of `internal-border-width' or `border-width', use the
 value of the corresponding frame parameter.
 Otherwise, no border is added below the top-bar.  */);
   Vtop_bar_border = Qinternal_border_width;
+
+  DEFVAR_LISP ("top-bar-current-frame", Vtop_bar_current_frame,
+    doc: /* The current frame on which top bar is being calculated. */);
+  Vtop_bar_current_frame = Qnil;
 
   DEFVAR_LISP ("tab-bar-button-margin", Vtab_bar_button_margin,
     doc: /* Margin around tab-bar buttons in pixels.
